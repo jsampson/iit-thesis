@@ -1,0 +1,21 @@
+SKZ #0
+JMP +3
+SET #0
+END
+CLR #0
+SKZ #1
+JMP +3
+SET #1
+END
+CLR #1
+SKZ #2
+JMP +3
+SET #2
+END
+CLR #2
+SKZ #3
+JMP +3
+SET #3
+END
+CLR #3
+END
