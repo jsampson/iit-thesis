@@ -55,25 +55,27 @@ for initial_state in range(2 ** bits):
         instruction = program[I]
         operation = instruction[0]
         operand = instruction[1]
+        bit = bits - operand - 1
         if operation == "JMP":
             if operand == 0:
                 I = 0
             else:
                 I = I + operand
         elif operation == "SKZ":
-            if A & (1 << operand):
+            if A & (1 << bit):
                 I = I + 1
             else:
                 I = I + 2
         elif operation == "SET":
-            B = B | (1 << operand)
+            B = B | (1 << bit)
             I = I + 1
         else:
             assert operation == "CLR"
-            B = B & ~(1 << operand)
+            B = B & ~(1 << bit)
             I = I + 1
         if I > 255:
-            sys.exit(f"Crashed for input {initial_state}")
+            print(f"{A:0{bits}b} -> crash")
+            break
         if I == 0:
             print(f"{A:0{bits}b} -> {B:0{bits}b}")
             break
