@@ -1,0 +1,9 @@
+- for connectivity matrix, execute program for every possible input and collect
+  a set of inputs for each instruction
+  - for every instruction, there will be a partition of the bits into those
+    that vary and those that don't
+  - then check every SET/CLR instruction to see what bits vary in its set of
+    inputs
+  - remember that A[x] causes B[x] unless B[x] is definitely set or cleared
+    without checking A[x]
+  - and some instructions may never be reached for some inputs
