@@ -1,6 +1,14 @@
 import re
 import sys
+import time
 
+
+if len(sys.argv) < 2:
+    sys.exit("No program file name given.")
+
+program_file = sys.stdin if sys.argv[1] == "-" else open(sys.argv[1])
+
+starting_state = None if len(sys.argv) < 3 else int(sys.argv[2], base=2)
 
 LINE = re.compile("^\\s*([A-Z]+)\\s*(?:([#+])\\s*([0-9]+)\\s*)?$", re.IGNORECASE)
 
@@ -16,7 +24,7 @@ OPS = {
 program = []
 bits = 0
 
-for line in sys.stdin:
+for line in program_file:
     if not line or line.isspace():
         continue
     match = LINE.fullmatch(line)
@@ -47,9 +55,10 @@ if len(program) > 256:
 while len(program) < 256:
     program.append(("JMP", 0))
 
-for initial_state in range(2 ** bits):
-    A = initial_state
-    B = initial_state
+
+def next_state(prev_state):
+    A = prev_state
+    B = prev_state
     I = 0
     while True:
         instruction = program[I]
@@ -74,8 +83,25 @@ for initial_state in range(2 ** bits):
             B = B & ~(1 << bit)
             I = I + 1
         if I > 255:
-            print(f"{A:0{bits}b} -> crash")
-            break
+            return None
         if I == 0:
-            print(f"{A:0{bits}b} -> {B:0{bits}b}")
-            break
+            return B
+
+
+if starting_state is not None:
+    state = starting_state
+    try:
+        while state is not None:
+            print(f"\r{state:0{bits}b}", end="")
+            time.sleep(.5)
+            state = next_state(state)
+        print("\rcrash" + (" " * (bits - 5)))
+    except KeyboardInterrupt:
+        print()
+else:
+    for initial_state in range(2 ** bits):
+        following_state = next_state(initial_state)
+        if following_state is None:
+            print(f"{initial_state:0{bits}b} -> crash")
+        else:
+            print(f"{initial_state:0{bits}b} -> {following_state:0{bits}b}")
