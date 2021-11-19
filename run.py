@@ -105,7 +105,7 @@ def run_from(state):
     try:
         while state is not None:
             print(f"\r{state:0{bits}b}", end="")
-            time.sleep(.5)
+            time.sleep(1)
             state = next_state(state)
         print("\rcrash" + (" " * (bits - 5)))
     except KeyboardInterrupt:
