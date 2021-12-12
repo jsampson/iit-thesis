@@ -71,7 +71,9 @@ def next_state(prev_state, active_reads=None, causation=None):
     A = prev_state
     B = prev_state
     I = 0
+    count = 0
     while True:
+        count = count + 1
         instruction = program[I]
         operation = instruction[0]
         operand = instruction[1]
@@ -96,17 +98,17 @@ def next_state(prev_state, active_reads=None, causation=None):
             B = B & ~(1 << bit)
             I = I + 1
         if I > 255:
-            return None
+            return None, count
         if I == 0:
-            return B
+            return B, count
 
 
 def run_from(state):
     try:
         while state is not None:
             print(f"\r{state:0{bits}b}", end="")
-            time.sleep(1)
-            state = next_state(state)
+            state, count = next_state(state)
+            time.sleep(count * .1)
         print("\rcrash" + (" " * (bits - 5)))
     except KeyboardInterrupt:
         print()
@@ -136,19 +138,24 @@ def analyze():
         else:
             propagate_reads(active_reads, i, i + 1)
     connectivity = [[0 for _ in range(bits)] for _ in range(bits)]
+    print("Transition table:")
     for initial_state in range(2 ** bits):
         causation = {key: {key} for key in range(bits)}
-        following_state = next_state(initial_state, active_reads, causation)
+        following_state, count = next_state(
+            initial_state, active_reads, causation
+        )
         for target in causation:
             for source in causation[target]:
                 connectivity[source][target] = 1
         if following_state is None:
-            print(f"{initial_state:0{bits}b} -> crash")
+            outcome = "crash"
         else:
-            print(f"{initial_state:0{bits}b} -> {following_state:0{bits}b}")
+            outcome = f"{following_state:0{bits}b}"
+        print(f"{initial_state:0{bits}b} -> {outcome} in {count:2} micro steps")
     print()
+    print("Connectivity matrix:")
     for row in connectivity:
-        print("".join([str(value) for value in row]))
+        print("[" + ", ".join([str(value) for value in row]) + "]")
 
 
 if starting_state is not None:

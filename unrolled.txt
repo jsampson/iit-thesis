@@ -1,0 +1,53 @@
+SKZ  #0
+JMP  +2
+JMP  +4
+SKZ  #1
+JMP  +5
+JMP  +7
+SKZ  #1
+JMP  +8
+JMP +10
+SKZ  #2
+JMP +11
+JMP +14
+SKZ  #2
+JMP +16
+JMP +19
+SKZ  #2
+JMP +21
+JMP +24
+SKZ  #2
+JMP +26
+JMP +29
+SET #0
+SET #1
+CLR #2
+END
+SET #0
+CLR #1
+CLR #2
+END
+SET #0
+SET #1
+SET #2
+END
+CLR #0
+CLR #1
+SET #2
+END
+SET #0
+SET #1
+SET #2
+END
+SET #0
+CLR #1
+SET #2
+END
+SET #0
+SET #1
+CLR #2
+END
+CLR #0
+CLR #1
+CLR #2
+END

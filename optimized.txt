@@ -1,0 +1,19 @@
+SET #0
+SET #1
+SKZ #2
+JMP +5
+SKZ #1
+JMP +2
+CLR #0
+CLR #1
+
+SKZ #0
+JMP +5
+CLR #2
+SKZ #1
+SET #2
+END
+SET #2
+SKZ #1
+CLR #2
+END
