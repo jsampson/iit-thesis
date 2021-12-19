@@ -1,14 +1,21 @@
-def rel_gate(
-        inputs, initial_value, propagation_delay, transition_factor, function):
-    transition_time = propagation_delay * transition_factor
-    lag_time = propagation_delay - transition_time / 2
-    return Gate(inputs, initial_value, lag_time,
-            transition_time, transition_time, function)
+from fractions import Fraction
 
 
 class Gate:
-    def __init__(self,
-            inputs, initial_value, lag_time, rise_time, fall_time, function):
+    def __init__(self, inputs, initial_value, timings, function, label=None):
+        if len(timings) == 3:
+            lag_time = Fraction(timings[0])
+            rise_time = Fraction(timings[1])
+            fall_time = Fraction(timings[2])
+        elif len(timings) == 2:
+            propagation_delay = Fraction(timings[0])
+            transition_factor = Fraction(timings[1])
+            transition_time = propagation_delay * transition_factor
+            lag_time = propagation_delay - transition_time / 2
+            rise_time = transition_time
+            fall_time = transition_time
+        else:
+            raise ValueError
         if any(input < 0 for input in inputs) or lag_time <= 0 or rise_time < 0 \
                 or fall_time < 0:
             raise ValueError
@@ -18,3 +25,4 @@ class Gate:
         self.rise_time = rise_time
         self.fall_time = fall_time
         self.function = function
+        self.label = label
