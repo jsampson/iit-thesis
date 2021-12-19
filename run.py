@@ -8,7 +8,15 @@ if len(sys.argv) < 2:
 
 program_file = sys.stdin if sys.argv[1] == "-" else open(sys.argv[1])
 
-starting_state = None if len(sys.argv) < 3 else int(sys.argv[2], base=2)
+calculate_phi = False
+starting_state = None
+if len(sys.argv) > 2:
+    if sys.argv[2] == "phi":
+        import numpy
+        import pyphi
+        calculate_phi = True
+    else:
+        starting_state = int(sys.argv[2], base=2)
 
 LINE = re.compile("^\\s*([A-Z]+)\\s*(?:([#+])\\s*([0-9]+)\\s*)?$", re.IGNORECASE)
 
@@ -124,6 +132,19 @@ def propagate_reads(active_reads, from_index, to_index, add_value=None):
             to_reads[from_index] = to_reads.get(from_index, set()) | {add_value}
 
 
+def split_state(state):
+    return [int(c) for c in f"{state:0{bits}b}"]
+
+
+def reorder(big_endian):
+    little_endian = []
+    for i in range(2 ** bits):
+        le = f"{i:0{bits}b}"
+        be = le[::-1]
+        little_endian.append(big_endian[int(be, base=2)])
+    return little_endian
+
+
 def analyze():
     active_reads = [{} for _ in range(256)]
     for i in range(256):
@@ -138,20 +159,38 @@ def analyze():
         else:
             propagate_reads(active_reads, i, i + 1)
     connectivity = [[0 for _ in range(bits)] for _ in range(bits)]
-    print("Transition table:")
+    transitions = []
     for initial_state in range(2 ** bits):
         causation = {key: {key} for key in range(bits)}
         following_state, count = next_state(
             initial_state, active_reads, causation
         )
+        transitions.append((following_state, count))
         for target in causation:
             for source in causation[target]:
                 connectivity[source][target] = 1
+    if calculate_phi:
+        network = pyphi.Network(
+            tpm=numpy.array(reorder([split_state(s) for s, c in transitions])),
+            cm=numpy.array(connectivity),
+        )
+    print("Transition table:")
+    for initial_state in range(2 ** bits):
+        following_state, count = transitions[initial_state]
+        line = f"{initial_state:0{bits}b} -> "
         if following_state is None:
-            outcome = "crash"
+            line += "crash"
         else:
-            outcome = f"{following_state:0{bits}b}"
-        print(f"{initial_state:0{bits}b} -> {outcome} in {count:2} micro steps")
+            line += f"{following_state:0{bits}b}"
+        line += f" in {count:2} micro steps"
+        if calculate_phi:
+            state_array = split_state(initial_state)
+            try:
+                phi = pyphi.compute.phi(pyphi.Subsystem(network, state_array))
+                line += f" (phi = {phi})"
+            except pyphi.exceptions.StateUnreachableError:
+                line += " (unreachable)"
+        print(line)
     print()
     print("Connectivity matrix:")
     for row in connectivity:
