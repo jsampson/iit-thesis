@@ -2,10 +2,14 @@ import operator
 
 from fractions import Fraction as F
 from functools import reduce
+from sys import argv
 
 from gate import Gate, rel_gate
 from path_runner import PathRunner
 
+
+def AND(inputs):
+    return all(inputs)
 
 def OR(inputs):
     return any(inputs)
@@ -14,33 +18,95 @@ def COPY(inputs):
     assert len(inputs) == 1
     return inputs[0]
 
+def NOT(inputs):
+    assert len(inputs) == 1
+    return not inputs[0]
+
 def XOR(inputs):
     return reduce(operator.xor, inputs, False)
 
-# for idealized.tex
-# p = Gate([1, 2], True,  F(1), F(0), F(0), OR)
-# q = Gate([2],    False, F(1), F(0), F(0), COPY)
-# r = Gate([0, 1], False, F(1), F(0), F(0), XOR)
+def NAND(inputs):
+    return not all(inputs)
 
-# for jagged.tex
-# p = rel_gate([1, 2], True,  F(1),     F("101/100"), OR)
-# q = rel_gate([2],    False, F("1/2"), F("101/100"), COPY)
-# r = rel_gate([0, 1], False, F("3/2"), F("101/100"), XOR)
 
-# for flatline.tex
-p = rel_gate([1, 2], True,  F(1),     F("10208333333334/10000000000000"), OR)
-q = rel_gate([2],    False, F("1/2"), F("10208333333334/10000000000000"), COPY)
-r = rel_gate([0, 1], False, F("3/2"), F("10208333333334/10000000000000"), XOR)
+if argv[1] == "idealized.tex":
+    gates = [
+        Gate([1, 2], True,  F(1), F(0), F(0), OR),
+        Gate([2],    False, F(1), F(0), F(0), COPY),
+        Gate([0, 1], False, F(1), F(0), F(0), XOR),
+    ]
+    width = F(5)
+    height = F(4)
+    padding = F(1, 5)
+    paths_to_display = [0, 1, 2]
+    path_names = ["P", "Q", "R"]
+    end_time = F(40)
+elif argv[1] == "jagged.tex":
+    gates = [
+        rel_gate([1, 2], True,  F("1.0"), F("1.01"), OR),
+        rel_gate([2],    False, F("0.5"), F("1.01"), COPY),
+        rel_gate([0, 1], False, F("1.5"), F("1.01"), XOR),
+    ]
+    width = F(5)
+    height = F(4)
+    padding = F(1, 5)
+    paths_to_display = [0, 1, 2]
+    path_names = ["P", "Q", "R"]
+    end_time = F(40)
+elif argv[1] == "flatline.tex":
+    gates = [
+        rel_gate([1, 2], True,  F("1.0"), F("1.0208333333334"), OR),
+        rel_gate([2],    False, F("0.5"), F("1.0208333333334"), COPY),
+        rel_gate([0, 1], False, F("1.5"), F("1.0208333333334"), XOR),
+    ]
+    width = F(5)
+    height = F(4)
+    padding = F(1, 5)
+    paths_to_display = [0, 1, 2]
+    path_names = ["P", "Q", "R"]
+    end_time = F(40)
+elif argv[1] == "clocked.tex":
+    FLIP_FLOP_GATES = 7
+    FLIP_FLOP_OUTPUT = 4
+    def create_flip_flop(gates, clock, data, value):
+        offset = len(gates)
+        gates.append(rel_gate([offset + 3, offset + 1], value,     F(1), F("1.0208333333334"), NAND))
+        gates.append(rel_gate([offset, clock],          True,      F(1), F("1.0208333333334"), NAND))
+        gates.append(rel_gate([offset + 6, offset + 3], True,   F(".9"), F("1.0208333333334"), NAND))
+        gates.append(rel_gate([offset + 2, data],       not value, F(1), F("1.0208333333334"), NAND))
+        gates.append(rel_gate([offset + 1, offset + 5], value,     F(1), F("1.0208333333334"), NAND))
+        gates.append(rel_gate([offset + 4, offset + 2], not value, F(1), F("1.0208333333334"), NAND))
+        gates.append(rel_gate([offset + 1, clock],      False,  F(".1"), F(0), AND))  # fan-in for offset + 2
+    clock = 0
+    gateP = 1
+    gateQ = 2
+    gateR = 3
+    ffOffsetP = 4
+    ffOffsetQ = ffOffsetP + FLIP_FLOP_GATES
+    ffOffsetR = ffOffsetQ + FLIP_FLOP_GATES
+    ffOutputP = ffOffsetP + FLIP_FLOP_OUTPUT
+    ffOutputQ = ffOffsetQ + FLIP_FLOP_OUTPUT
+    ffOutputR = ffOffsetR + FLIP_FLOP_OUTPUT
+    gates = []
+    gates.append(Gate([clock], False, F(10), F(0), F(0), NOT))
+    gates.append(rel_gate([ffOutputQ, ffOutputR], False, F("1.0"), F("1.0208333333334"), OR))
+    gates.append(rel_gate([ffOutputR],            False, F("0.5"), F("1.0208333333334"), COPY))
+    gates.append(rel_gate([ffOutputP, ffOutputQ], False, F("1.5"), F("1.0208333333334"), XOR))
+    create_flip_flop(gates, clock, gateP, True)
+    create_flip_flop(gates, clock, gateQ, False)
+    create_flip_flop(gates, clock, gateR, False)
+    width = F(5)
+    height = F(5)
+    padding = F(1, 5)
+    paths_to_display = [clock, ffOutputP, ffOutputQ, ffOutputR]
+    path_names = ["clock", "P", "Q", "R"]
+    end_time = F(240)
+else:
+    raise ValueError
 
-runner = PathRunner([p, q, r])
 
-runner.truncate_at(F(40))
-
-width = F(5)
-height = F(4)
-padding = F(1, 5)
-paths_to_display = [0, 1, 2]
-path_names = ["P", "Q", "R"]
+runner = PathRunner(gates)
+runner.truncate_at(end_time)
 
 print("\\begin{tikzpicture}")
 
