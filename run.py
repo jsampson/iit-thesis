@@ -23,7 +23,6 @@ if len(sys.argv) > 2:
         starting_state = int(sys.argv[2], base=2)
 else:
     command = "analyze"
-    calculate_phi = False
 
 LINE = re.compile("^\\s*([A-Z]+)\\s*(?:([#+])\\s*([0-9]+)\\s*)?$", re.IGNORECASE)
 
@@ -162,14 +161,14 @@ def propagate_reads(active_reads, from_index, to_index, add_value=None):
             to_reads[from_index] = to_reads.get(from_index, set()) | {add_value}
 
 
-def split_state(state):
-    return [int(c) for c in f"{state:0{bits}b}"]
+def split_state(state, b=bits):
+    return [int(c) for c in f"{state:0{b}b}"]
 
 
-def reorder(big_endian):
+def reorder(big_endian, b=bits):
     little_endian = []
-    for i in range(2 ** bits):
-        le = f"{i:0{bits}b}"
+    for i in range(2 ** b):
+        le = f"{i:0{b}b}"
         be = le[::-1]
         little_endian.append(big_endian[int(be, base=2)])
     return little_endian
@@ -279,6 +278,26 @@ def micro_analyze():
     print("Micro connectivity matrix:")
     for row in connectivity:
         print("[" + ", ".join([str(value) for value in row]) + "]")
+    if calculate_phi:
+        print()
+        network = pyphi.Network(
+            tpm=numpy.array(
+                reorder(
+                    [split_state(s, total_bits) for s in transitions],
+                    total_bits,
+                )
+            ),
+            cm=numpy.array(connectivity),
+        )
+        for a in range(2 ** bits):
+            state = (a << (bits + i_bits)) | (a << i_bits)
+            state_array = split_state(state, total_bits)
+            print(f"Computing phi for {state:0{total_bits}b}...")
+            try:
+                phi = pyphi.compute.phi(pyphi.Subsystem(network, state_array))
+                print(f"* Phi = {phi}")
+            except pyphi.exceptions.StateUnreachableError:
+                print("* Unreachable")
 
 
 if command == "run":
