@@ -9,14 +9,21 @@ if len(sys.argv) < 2:
 program_file = sys.stdin if sys.argv[1] == "-" else open(sys.argv[1])
 
 calculate_phi = False
-starting_state = None
+if len(sys.argv) > 2 and sys.argv[-1] == "phi":
+    import numpy
+    import pyphi
+    del sys.argv[-1]
+    calculate_phi = True
+
 if len(sys.argv) > 2:
-    if sys.argv[2] == "phi":
-        import numpy
-        import pyphi
-        calculate_phi = True
+    if sys.argv[2] == "micro":
+        command = "micro"
     else:
+        command = "run"
         starting_state = int(sys.argv[2], base=2)
+else:
+    command = "analyze"
+    calculate_phi = False
 
 LINE = re.compile("^\\s*([A-Z]+)\\s*(?:([#+])\\s*([0-9]+)\\s*)?$", re.IGNORECASE)
 
@@ -60,6 +67,7 @@ for line in program_file:
 if len(program) > 256:
     sys.exit(f"Program too long: {len(program)} instructions")
 
+program_length = len(program)
 while len(program) < 256:
     program.append(("JMP", 0))
 
@@ -222,7 +230,61 @@ def analyze():
         print("[" + ", ".join([str(value) for value in row]) + "]")
 
 
-if starting_state is not None:
+def micro_analyze():
+    i_bits = int.bit_length(program_length)
+    total_bits = 2 * bits + i_bits
+    transitions = []
+    for a in range(2 ** bits):
+        for b in range(2 ** bits):
+            for i in range(2 ** i_bits):
+                computer = Computer(a, b, i)
+                try:
+                    computer.micro_step()
+                except Crash:
+                    pass  # The registers are correct even when crashing.
+                assert computer.A < 2 ** bits
+                assert computer.B < 2 ** bits
+                if computer.I >= 2 ** i_bits:
+                    sys.exit("I exceeded given program length.")
+                transitions.append(
+                    (computer.A << (bits + i_bits))
+                    | (computer.B << i_bits)
+                    | computer.I
+                )
+    connectivity = [[0 for _ in range(total_bits)] for _ in range(total_bits)]
+    a_indexes = range(0, bits)
+    b_indexes = range(bits, 2 * bits)
+    i_indexes = range(2 * bits, total_bits)
+    for row in a_indexes:
+        connectivity[row][row] = 1
+        for col in i_indexes:
+            connectivity[row][col] = 1
+    for row in b_indexes:
+        connectivity[row][row] = 1
+        connectivity[row][row - bits] = 1
+    for row in i_indexes:
+        for col in a_indexes:
+            connectivity[row][col] = 1
+        for col in b_indexes:
+            connectivity[row][col] = 1
+        for col in i_indexes:
+            connectivity[row][col] = 1
+    print("Micro transition table:")
+    for initial_state in range(2 ** total_bits):
+        following_state = transitions[initial_state]
+        print(
+            f"{initial_state:0{total_bits}b} -> {following_state:0{total_bits}b}"
+        )
+    print()
+    print("Micro connectivity matrix:")
+    for row in connectivity:
+        print("[" + ", ".join([str(value) for value in row]) + "]")
+
+
+if command == "run":
     run_from(starting_state)
-else:
+elif command == "analyze":
     analyze()
+else:
+    assert command == "micro"
+    micro_analyze()
