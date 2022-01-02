@@ -64,51 +64,73 @@ while len(program) < 256:
     program.append(("JMP", 0))
 
 
-def stash_causation(i, target, active_reads, causation):
-    if active_reads is not None:
-        result = set()
-        for key in active_reads[i]:
-            values = active_reads[i][key]
-            if len(values) == 1:
-                source = program[key][1]
-                result.add(source)
-        causation[target] = result
+def stash_causation(I, target, active_reads, causation):
+    reads = active_reads[I]
+    result = set()
+    for key in reads:
+        values = reads[key]
+        if len(values) == 1:
+            source = program[key][1]
+            result.add(source)
+    causation[target] = result
 
 
-def next_state(prev_state, active_reads=None, causation=None):
-    A = prev_state
-    B = prev_state
-    I = 0
-    count = 0
-    while True:
-        count = count + 1
-        instruction = program[I]
+class Crash(Exception):
+    pass
+
+
+class Computer:
+    def __init__(self, A, B, I, write_callback=None):
+        self.A = A
+        self.B = B
+        self.I = I
+        self.__write_callback = write_callback
+
+    def micro_step(self):
+        instruction = program[self.I]
         operation = instruction[0]
         operand = instruction[1]
-        bit = bits - operand - 1
         if operation == "JMP":
             if operand == 0:
-                I = 0
+                self.A = self.B
+                delta_I = None
             else:
-                I = I + operand
-        elif operation == "SKZ":
-            if A & (1 << bit):
-                I = I + 1
-            else:
-                I = I + 2
-        elif operation == "SET":
-            stash_causation(I, operand, active_reads, causation)
-            B = B | (1 << bit)
-            I = I + 1
+                delta_I = operand
         else:
-            assert operation == "CLR"
-            stash_causation(I, operand, active_reads, causation)
-            B = B & ~(1 << bit)
-            I = I + 1
-        if I > 255:
+            bit = 1 << (bits - operand - 1)
+            if operation == "SKZ":
+                if self.A & bit:
+                    delta_I = 1
+                else:
+                    delta_I = 2
+            else:
+                if self.__write_callback:
+                    self.__write_callback(self.I, operand)
+                if operation == "SET":
+                    self.B |= bit
+                else:
+                    assert operation == "CLR"
+                    self.B &= ~bit
+                delta_I = 1
+        if delta_I is None:
+            self.I = 0
+        elif self.I + delta_I <= 255:
+            self.I += delta_I
+        else:
+            raise Crash
+
+
+def next_state(prev_state, write_callback=None):
+    computer = Computer(prev_state, prev_state, 0, write_callback)
+    count = 0
+    while True:
+        count += 1
+        try:
+            computer.micro_step()
+        except Crash:
             return None, count
-        if I == 0:
-            return B, count
+        if computer.I == 0:
+            return computer.A, count
 
 
 def run_from(state):
@@ -163,7 +185,10 @@ def analyze():
     for initial_state in range(2 ** bits):
         causation = {key: {key} for key in range(bits)}
         following_state, count = next_state(
-            initial_state, active_reads, causation
+            initial_state,
+            lambda i, target: stash_causation(
+                i, target, active_reads, causation
+            ),
         )
         transitions.append((following_state, count))
         for target in causation:
