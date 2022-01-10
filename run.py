@@ -76,7 +76,7 @@ def stash_causation(I, target, active_reads, causation):
     result = set()
     for key in reads:
         values = reads[key]
-        if len(values) == 1:
+        if (len(values[0]) == 0) ^ (len(values[1]) == 0):
             source = program[key][1]
             result.add(source)
     causation[target] = result
@@ -156,9 +156,41 @@ def propagate_reads(active_reads, from_index, to_index, add_value=None):
         from_reads = active_reads[from_index]
         to_reads = active_reads[to_index]
         for key in from_reads:
-            to_reads[key] = to_reads.get(key, set()) | from_reads[key]
+            add_to_reads(to_reads, key, 0,
+                [path + [from_index] for path in from_reads[key][0]]
+            )
+            add_to_reads(to_reads, key, 1,
+                [path + [from_index] for path in from_reads[key][1]]
+            )
         if add_value is not None:
-            to_reads[from_index] = to_reads.get(from_index, set()) | {add_value}
+            add_to_reads(to_reads, from_index, add_value, [[from_index]])
+
+
+def add_to_reads(to_reads, key, value, new_paths):
+    if key in to_reads:
+        value_paths = to_reads[key]
+    else:
+        value_paths = ([], [])
+        to_reads[key] = value_paths
+    value_paths[value].extend(new_paths)
+
+
+def propagate_write(active_reads, bb_candidates, target):
+    target_instruction = program[target]
+    target_operand = target_instruction[1]
+    reads_at_write = active_reads[target]
+    bb_candidates[target][1].add(target_operand)
+    for source in reads_at_write:
+        if_0, if_1 = reads_at_write[source]
+        if (len(if_0) == 0) ^ (len(if_1) == 0):
+            source_instruction = program[source]
+            source_operand = source_instruction[1]
+            bb_candidates[target][0].add(source_operand)
+            paths = if_0 or if_1
+            for path in paths:
+                for i in path:
+                    bb_candidates[i][0].add(source_operand)
+                    bb_candidates[i][1].add(target_operand)
 
 
 def split_state(state, b=bits):
@@ -176,6 +208,7 @@ def reorder(big_endian, b=bits):
 
 def analyze():
     active_reads = [{} for _ in range(256)]
+    bb_candidates = [(set(), set()) for _ in range(256)]
     for i in range(256):
         instruction = program[i]
         operation = instruction[0]
@@ -187,6 +220,7 @@ def analyze():
             propagate_reads(active_reads, i, i + 2, 0)
         else:
             propagate_reads(active_reads, i, i + 1)
+            propagate_write(active_reads, bb_candidates, i)
     connectivity = [[0 for _ in range(bits)] for _ in range(bits)]
     transitions = []
     for initial_state in range(2 ** bits):
@@ -227,6 +261,37 @@ def analyze():
     print("Connectivity matrix:")
     for row in connectivity:
         print("[" + ", ".join([str(value) for value in row]) + "]")
+    print()
+    print("Hypothetical black-box assignments:")
+    assignments = []
+    for i in range(256):
+        instruction = program[i]
+        operation = instruction[0]
+        operand = instruction[1]
+        if operation == "JMP" and operand == 0:
+            printable = "END"
+        elif operation == "JMP" and operand == 1:
+            printable = "NOP"
+        else:
+            printable = f"{operation} {OPS[operation]}{operand}"
+        bb_reads, bb_writes = bb_candidates[i]
+        if len(bb_writes) == 1:
+            assignment = next(iter(bb_writes))
+        elif len(bb_reads) == 1:
+            assignment = next(iter(bb_reads))
+        elif len(bb_writes) > 1 and len(bb_reads) > 1:
+            assignment = "?"
+        else:
+            assignment = "-"
+        assignments.append((printable, assignment))
+    last_i = -1
+    for i in range(255, -1, -1):
+        if assignments[i] != ("END", "-"):
+            last_i = i
+            break
+    for i in range(0, min(256, last_i + 2)):
+        printable, assignment = assignments[i]
+        print(f"{printable: <8}->{assignment: >3}")
 
 
 def micro_analyze():
