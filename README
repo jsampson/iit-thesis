@@ -1,0 +1,74 @@
+This is the code for my forthcoming master's thesis, Integrated Information
+Theory of Consciousness in Conventional Computing.
+
+The "circ" subdirectory contians a circuit simulator used to generate all the
+circuit timing diagrams in the thesis. It is run as circ/main.py <file>, where
+<file> is one of the output filenames: idealized.tex, jagged.tex, flatline.tex,
+or clocked.tex. The output is a TikZ picture for use in a LaTeX document.
+
+The root directory contains an emulator and dataflow analyzer for the toy
+computer design described in the thesis. It has four running modes:
+
+run.py <file> <state>
+
+    Runs the toy computer with the given program continuously, starting from
+    the given initial state.
+
+run.py <file>
+
+    Analyzes the given program in various ways.
+
+run.py <file> phi
+
+    Analyzes the given program as before, and also calculates IIT's phi value
+    for every macro state (assuming that each bit is a valid macro element).
+
+run.py <file> micro
+
+    Produces a transition table and connectivity matrix for the causal model of
+    the computer with the given program, where the micro elements are just the
+    bits of the A, B, and I registers that are actually used by the program.
+
+run.py <file> micro phi
+
+    Produces the same causal model and also attempts to calculate phi for each
+    of its micro states. Warning: This command is unlikely to complete running
+    in a reasonable timeframe.
+
+In each of those, <file> can be the name of a file containing a program in the
+toy computer's assembly language, or it can be "-" to read from the standard
+input. If given, <state> is a binary number (e.g. "101") specifying the initial
+state of the computer, in little-endian format as is conventional for the IIT
+literature.
+
+The commands without "phi" do not require anything beyond the standard library
+packages of Python 3. The commands with "phi" require PyPhi to be installed.
+The Dockerfile is provided to ensure that PyPhi and its dependencies can be
+installed successfully. The build-image.sh and run-all.sh scripts build the
+image and run it on all of the provided example programs, respectively.
+
+The various *.txt files are example programs as describe in the thesis:
+
+pqr.txt
+
+    A straightforward implementation of the "PQR" system.
+
+counter.txt
+
+    A four-bit counter.
+
+optimized.txt
+
+    The PQR system, but with some reads shared between blocks.
+
+unrolled.txt
+
+    The PQR system, but implemented as a full state transition table using a
+    branching tree structure.
+
+pqrpqr.txt
+
+    Two copies of the PQR system running in a single computer.
+
+
+Copyright 2022 by Justin T. Sampson
