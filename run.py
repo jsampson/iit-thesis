@@ -34,7 +34,9 @@ if len(sys.argv) > 2 and sys.argv[-1] == "phi":
     calculate_phi = True
 
 if len(sys.argv) > 2:
-    if sys.argv[2] == "micro":
+    if sys.argv[2] == "diagram":
+        command = "diagram"
+    elif sys.argv[2] == "micro":
         command = "micro"
     else:
         command = "run"
@@ -383,10 +385,54 @@ def micro_analyze():
                 print("* Unreachable")
 
 
+def diagram():
+    print(r"\begin{tikzpicture}[scale=.5, transform shape, line cap=rect]")
+    last = 0
+    edges = []
+    for i in range(256):
+        if i > last:
+            break
+        instruction = program[i]
+        operation = instruction[0]
+        operand = instruction[1]
+        line = f"\\draw (0,{-.75*i}) node[anchor=east](i{i}){{{i}. \\texttt{{"
+        if operation == "JMP" and operand == 0:
+            line += "END~~~~~"
+            furthest = 0
+        elif operation == "JMP" and operand == 1:
+            line += "NOP~~~~~"
+            edges.append(f"\\draw[->] (i{i}) edge (i{i+1});")
+            furthest = i + 1
+        else:
+            punct = OPS[operation].replace("#", r"\#")
+            line += f"{operation} {punct}{operand}"
+            if operand < 10:
+                line += "~~"
+            if operation == "SKZ":
+                edges.append(f"\\draw[->] (i{i}) edge (i{i+1});")
+                edges.append(f"\\draw[->] (i{i}) edge[out=190,in=170] (i{i+2});")
+                furthest = i + 2
+            elif operation == "JMP":
+                edges.append(f"\\draw[->] (i{i}) edge[out=0,in=0] (i{i+operand});")
+                furthest = i + operand
+            else:
+                edges.append(f"\\draw[->] (i{i}) edge (i{i+1});")
+                furthest = i + 1
+        line += "}};"
+        print(line)
+        if furthest > last:
+            last = furthest
+    for edge in edges:
+        print(edge)
+    print(r"\end{tikzpicture}")
+
+
 if command == "run":
     run_from(starting_state)
 elif command == "analyze":
     analyze()
+elif command == "diagram":
+    diagram()
 else:
     assert command == "micro"
     micro_analyze()
