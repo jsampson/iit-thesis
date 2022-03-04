@@ -1,0 +1,64 @@
+CLR #0
+CLR #1
+CLR #2
+CLR #3
+CLR #4
+CLR #5
+CLR #6
+CLR #7
+CLR #8
+CLR #9
+CLR #10
+
+SKZ #0
+JMP +15
+SKZ #1
+JMP +15
+SKZ #2
+JMP +16
+SKZ #3
+JMP +17
+SKZ #4
+JMP +19
+SKZ #5
+JMP +20
+SKZ #6
+JMP +22
+SKZ #7
+JMP +24
+
+SET #0
+END
+
+SET #6
+SET #10
+END
+
+SET #5
+SET #9
+END
+
+SET #7
+SET #9
+SET #10
+END
+
+SET #1
+SET #8
+END
+
+SET #7
+SET #8
+SET #10
+END
+
+SET #4
+SET #8
+SET #9
+END
+
+SET #6
+SET #8
+SET #9
+SET #10
+END
