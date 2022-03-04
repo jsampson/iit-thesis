@@ -395,31 +395,31 @@ def diagram():
         instruction = program[i]
         operation = instruction[0]
         operand = instruction[1]
-        line = f"\\draw (0,{-.75*i}) node[anchor=east](i{i}){{{i}. \\texttt{{"
+        print(f"\\draw (0,{-.75*i}) node[anchor=east](i{i}){{{i}.}};")
+
         if operation == "JMP" and operand == 0:
-            line += "END~~~~~"
+            print(f"\\draw (0,{-.75*i}) node[draw,ultra thin,anchor=west](o{i}){{\\texttt{{END}}}};")
             furthest = 0
         elif operation == "JMP" and operand == 1:
-            line += "NOP~~~~~"
-            edges.append(f"\\draw[->] (i{i}) edge (i{i+1});")
+            print(f"\\draw (0,{-.75*i}) node[anchor=west](o{i}){{\\texttt{{NOP}}}};")
+            edges.append(f"\\draw[->,ultra thin] (o{i}) edge (o{i+1});")
             furthest = i + 1
         else:
+            print(f"\\draw (0,{-.75*i}) node[anchor=west](o{i}){{\\texttt{{{operation}}}}};")
             punct = OPS[operation].replace("#", r"\#")
-            line += f"{operation} {punct}{operand}"
-            if operand < 10:
-                line += "~~"
+            print(f"\\draw (o{i}.east) node[anchor=west](x{i}){{\\texttt{{{punct}{operand}}}}};")
             if operation == "SKZ":
-                edges.append(f"\\draw[->] (i{i}) edge (i{i+1});")
-                edges.append(f"\\draw[->] (i{i}) edge[out=190,in=170] (i{i+2});")
+                edges.append(f"\\draw[->,ultra thin] (o{i}) edge (o{i+1});")
+                edges.append(f"\\draw[->,ultra thin] (i{i}) edge[out=210,in=150] (i{i+2});")
                 furthest = i + 2
             elif operation == "JMP":
-                edges.append(f"\\draw[->] (i{i}) edge[out=0,in=0] (i{i+operand});")
+                target = program[i + operand]
+                x = "x" if target[0] != "JMP" or target[1] > 1 else "o"
+                edges.append(f"\\draw[->,ultra thin] (x{i}) edge[out=0,in=0] ({x}{i+operand});")
                 furthest = i + operand
             else:
-                edges.append(f"\\draw[->] (i{i}) edge (i{i+1});")
+                edges.append(f"\\draw[->,ultra thin] (o{i}) edge (o{i+1});")
                 furthest = i + 1
-        line += "}};"
-        print(line)
         if furthest > last:
             last = furthest
     for edge in edges:
