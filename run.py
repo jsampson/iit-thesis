@@ -91,17 +91,6 @@ while len(program) < 256:
     program.append(("JMP", 0))
 
 
-def stash_causation(I, target, active_reads, causation):
-    reads = active_reads[I]
-    result = set()
-    for key in reads:
-        values = reads[key]
-        if (len(values[0]) == 0) ^ (len(values[1]) == 0):
-            source = program[key][1]
-            result.add(source)
-    causation[target] = result
-
-
 class Crash(Exception):
     pass
 
@@ -171,46 +160,85 @@ def run_from(state):
         print()
 
 
-def propagate_reads(active_reads, from_index, to_index, add_value=None):
-    if from_index < to_index < 256:
-        from_reads = active_reads[from_index]
-        to_reads = active_reads[to_index]
-        for key in from_reads:
-            add_to_reads(to_reads, key, 0,
-                [path + [from_index] for path in from_reads[key][0]]
+class Analyzer:
+    def __init__(self):
+        self.active_reads = [{} for _ in range(256)]
+        self.bb_candidates = [(set(), set()) for _ in range(256)]
+        self.connectivity = [[0 for _ in range(bits)] for _ in range(bits)]
+        self.transitions = []
+
+    def perform_analysis(self):
+        for i in range(256):
+            instruction = program[i]
+            operation = instruction[0]
+            operand = instruction[1]
+            if operation == "JMP":
+                self.propagate_reads(i, i + operand)
+            elif operation == "SKZ":
+                self.propagate_reads(i, i + 1, 1)
+                self.propagate_reads(i, i + 2, 0)
+            else:
+                self.propagate_reads(i, i + 1)
+                self.propagate_write(i)
+        for initial_state in range(2 ** bits):
+            causation = {key: {key} for key in range(bits)}
+            following_state, count = next_state(
+                initial_state,
+                lambda i, target: self.stash_causation(i, target, causation),
             )
-            add_to_reads(to_reads, key, 1,
-                [path + [from_index] for path in from_reads[key][1]]
-            )
-        if add_value is not None:
-            add_to_reads(to_reads, from_index, add_value, [[from_index]])
+            self.transitions.append((following_state, count))
+            for target in causation:
+                for source in causation[target]:
+                    self.connectivity[source][target] = 1
 
+    def stash_causation(self, I, target, causation):
+        reads = self.active_reads[I]
+        result = set()
+        for key in reads:
+            values = reads[key]
+            if (len(values[0]) == 0) ^ (len(values[1]) == 0):
+                source = program[key][1]
+                result.add(source)
+        causation[target] = result
 
-def add_to_reads(to_reads, key, value, new_paths):
-    if key in to_reads:
-        value_paths = to_reads[key]
-    else:
-        value_paths = ([], [])
-        to_reads[key] = value_paths
-    value_paths[value].extend(new_paths)
+    def propagate_reads(self, from_index, to_index, add_value=None):
+        if from_index < to_index < 256:
+            from_reads = self.active_reads[from_index]
+            to_reads = self.active_reads[to_index]
+            for key in from_reads:
+                self.add_to_reads(to_reads, key, 0,
+                    [path + [from_index] for path in from_reads[key][0]]
+                )
+                self.add_to_reads(to_reads, key, 1,
+                    [path + [from_index] for path in from_reads[key][1]]
+                )
+            if add_value is not None:
+                self.add_to_reads(to_reads, from_index, add_value, [[from_index]])
 
+    def add_to_reads(self, to_reads, key, value, new_paths):
+        if key in to_reads:
+            value_paths = to_reads[key]
+        else:
+            value_paths = ([], [])
+            to_reads[key] = value_paths
+        value_paths[value].extend(new_paths)
 
-def propagate_write(active_reads, bb_candidates, target):
-    target_instruction = program[target]
-    target_operand = target_instruction[1]
-    reads_at_write = active_reads[target]
-    bb_candidates[target][1].add(target_operand)
-    for source in reads_at_write:
-        if_0, if_1 = reads_at_write[source]
-        if (len(if_0) == 0) ^ (len(if_1) == 0):
-            source_instruction = program[source]
-            source_operand = source_instruction[1]
-            bb_candidates[target][0].add(source_operand)
-            paths = if_0 or if_1
-            for path in paths:
-                for i in path:
-                    bb_candidates[i][0].add(source_operand)
-                    bb_candidates[i][1].add(target_operand)
+    def propagate_write(self, target):
+        target_instruction = program[target]
+        target_operand = target_instruction[1]
+        reads_at_write = self.active_reads[target]
+        self.bb_candidates[target][1].add(target_operand)
+        for source in reads_at_write:
+            if_0, if_1 = reads_at_write[source]
+            if (len(if_0) == 0) ^ (len(if_1) == 0):
+                source_instruction = program[source]
+                source_operand = source_instruction[1]
+                self.bb_candidates[target][0].add(source_operand)
+                paths = if_0 or if_1
+                for path in paths:
+                    for i in path:
+                        self.bb_candidates[i][0].add(source_operand)
+                        self.bb_candidates[i][1].add(target_operand)
 
 
 def split_state(state, b=bits):
@@ -227,42 +255,16 @@ def reorder(big_endian, b=bits):
 
 
 def analyze():
-    active_reads = [{} for _ in range(256)]
-    bb_candidates = [(set(), set()) for _ in range(256)]
-    for i in range(256):
-        instruction = program[i]
-        operation = instruction[0]
-        operand = instruction[1]
-        if operation == "JMP":
-            propagate_reads(active_reads, i, i + operand)
-        elif operation == "SKZ":
-            propagate_reads(active_reads, i, i + 1, 1)
-            propagate_reads(active_reads, i, i + 2, 0)
-        else:
-            propagate_reads(active_reads, i, i + 1)
-            propagate_write(active_reads, bb_candidates, i)
-    connectivity = [[0 for _ in range(bits)] for _ in range(bits)]
-    transitions = []
-    for initial_state in range(2 ** bits):
-        causation = {key: {key} for key in range(bits)}
-        following_state, count = next_state(
-            initial_state,
-            lambda i, target: stash_causation(
-                i, target, active_reads, causation
-            ),
-        )
-        transitions.append((following_state, count))
-        for target in causation:
-            for source in causation[target]:
-                connectivity[source][target] = 1
+    a = Analyzer()
+    a.perform_analysis()
     if calculate_phi:
         network = pyphi.Network(
-            tpm=numpy.array(reorder([split_state(s) for s, c in transitions])),
-            cm=numpy.array(connectivity),
+            tpm=numpy.array(reorder([split_state(s) for s, c in a.transitions])),
+            cm=numpy.array(a.connectivity),
         )
     print("Transition table:")
     for initial_state in range(2 ** bits):
-        following_state, count = transitions[initial_state]
+        following_state, count = a.transitions[initial_state]
         line = f"{initial_state:0{bits}b} -> "
         if following_state is None:
             line += "crash"
@@ -279,7 +281,7 @@ def analyze():
         print(line)
     print()
     print("Connectivity matrix:")
-    for row in connectivity:
+    for row in a.connectivity:
         print("[" + ", ".join([str(value) for value in row]) + "]")
     print()
     print("Hypothetical black-box assignments:")
@@ -294,7 +296,7 @@ def analyze():
             printable = "NOP"
         else:
             printable = f"{operation} {OPS[operation]}{operand}"
-        bb_reads, bb_writes = bb_candidates[i]
+        bb_reads, bb_writes = a.bb_candidates[i]
         if len(bb_writes) == 1:
             assignment = next(iter(bb_writes))
         elif len(bb_reads) == 1:
