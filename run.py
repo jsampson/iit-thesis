@@ -388,6 +388,8 @@ def micro_analyze():
 
 
 def diagram():
+    a = Analyzer()
+    a.perform_analysis()
     print(r"\begin{tikzpicture}[scale=.5, transform shape, line cap=rect]")
     last = 0
     edges = []
@@ -426,6 +428,24 @@ def diagram():
             last = furthest
     for edge in edges:
         print(edge)
+    for i in range(0, last+1):
+        bb = a.bb_candidates[i]
+        reads, writes = (
+            ", ".join(f"\\texttt{{\\#{n}}}" for n in sorted(s))
+            if s
+            else "$\\varnothing$"
+            for s in bb
+        )
+        rdraw = ""
+        wdraw = ""
+        if len(bb[1]) == 1:
+            wdraw = "draw,ultra thin,"
+        elif len(bb[0]) == 1:
+            rdraw = "draw,ultra thin,"
+        print(f"\\draw (-4,{-.75*i}) node[{rdraw}anchor=east](r{i}){{{reads}}};")
+        print(f"\\draw (-3.625,{-.75*i}) node[{wdraw}anchor=west](w{i}){{{writes}}};")
+        print(f"\\draw[->,ultra thin] (r{i}) edge (w{i});")
+        print(f"\\draw[ultra thin,dotted] (w{i}) -- (i{i});")
     print(r"\end{tikzpicture}")
 
 
