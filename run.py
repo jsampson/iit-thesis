@@ -428,9 +428,11 @@ def diagram():
             last = furthest
     for edge in edges:
         print(edge)
-    print("\\draw (-4,1.25) node{Instruction on path\\ldots};")
-    print("\\draw (-4,.75) node[anchor=east]{from reads of:};")
-    print("\\draw (-3.625,.75) node[anchor=west]{to writes of:};")
+    max_writes = max(len(bb[1]) for bb in a.bb_candidates)
+    bb_offset = min(-4, -max_writes-1)
+    print(f"\\draw ({bb_offset},1.25) node{{Instruction on path\\ldots}};")
+    print(f"\\draw ({bb_offset},.75) node[anchor=east]{{from reads of:}};")
+    print(f"\\draw ({bb_offset+.375},.75) node[anchor=west]{{to writes of:}};")
     for i in range(0, last+1):
         bb = a.bb_candidates[i]
         reads, writes = (
@@ -445,8 +447,8 @@ def diagram():
             wdraw = "draw,ultra thin,"
         elif len(bb[0]) == 1:
             rdraw = "draw,ultra thin,"
-        print(f"\\draw (-4,{-.75*i}) node[{rdraw}anchor=east](r{i}){{{reads}}};")
-        print(f"\\draw (-3.625,{-.75*i}) node[{wdraw}anchor=west](w{i}){{{writes}}};")
+        print(f"\\draw ({bb_offset},{-.75*i}) node[{rdraw}anchor=east](r{i}){{{reads}}};")
+        print(f"\\draw ({bb_offset+.375},{-.75*i}) node[{wdraw}anchor=west](w{i}){{{writes}}};")
         print(f"\\draw[->,ultra thin] (r{i}) edge (w{i});")
         print(f"\\draw[ultra thin,dotted] (w{i}) -- (i{i});")
     print(r"\end{tikzpicture}")
