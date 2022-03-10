@@ -402,7 +402,7 @@ def diagram():
         print(f"\\draw (0,{-.75*i}) node[anchor=east](i{i}){{{i}.}};")
 
         if operation == "JMP" and operand == 0:
-            print(f"\\draw (0,{-.75*i}) node[draw,ultra thin,anchor=west](o{i}){{\\texttt{{END}}}};")
+            print(f"\\draw (0,{-.75*i}) node[fill=lightgray,anchor=west](o{i}){{\\texttt{{END}}}};")
             furthest = 0
         elif operation == "JMP" and operand == 1:
             print(f"\\draw (0,{-.75*i}) node[anchor=west](o{i}){{\\texttt{{NOP}}}};")
@@ -428,6 +428,9 @@ def diagram():
             last = furthest
     for edge in edges:
         print(edge)
+    print("\\draw (-4,1.25) node{Instruction on path\\ldots};")
+    print("\\draw (-4,.75) node[anchor=east]{from reads of:};")
+    print("\\draw (-3.625,.75) node[anchor=west]{to writes of:};")
     for i in range(0, last+1):
         bb = a.bb_candidates[i]
         reads, writes = (
