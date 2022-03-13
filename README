@@ -35,6 +35,11 @@ run.py <file> micro phi
     of its micro states. Warning: This command is unlikely to complete running
     in a reasonable timeframe.
 
+run.py <file> diagram
+
+    Produces a LaTeX diagram of the program, its control flow, and "black box"
+    analysis.
+
 In each of those, <file> can be the name of a file containing a program in the
 toy computer's assembly language, or it can be "-" to read from the standard
 input. If given, <state> is a binary number (e.g. "101") specifying the initial
@@ -69,6 +74,18 @@ unrolled.txt
 pqrpqr.txt
 
     Two copies of the PQR system running in a single computer.
+
+unrolled-circuit.txt
+
+    A different meaning of "unrolled": Simulating an 11-bit system that
+    contains 8 bits for the actual states and 3 bits that appear to
+    functionally imitate the PQR system.
+
+unrolled-short-circuit.txt
+
+    A variant implementation of unrolled-circuit.txt that immediately
+    converges to a single state bit being on if it starts with more than
+    one.
 
 
 Copyright 2022 by Justin T. Sampson
