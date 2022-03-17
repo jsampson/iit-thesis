@@ -1,25 +1,27 @@
 SKZ #3
 JMP +3
 SET #3
-END
-CLR #3
+JMP +13
 
 SKZ #2
 JMP +3
 SET #2
-END
-CLR #2
+JMP +11
 
 SKZ #1
 JMP +3
 SET #1
-END
-CLR #1
+JMP +9
 
 SKZ #0
-JMP +3
+END
 SET #0
 END
-CLR #0
 
+SKZ #2
+SET #2
+SKZ #1
+SET #1
+SKZ #0
+SET #0
 END

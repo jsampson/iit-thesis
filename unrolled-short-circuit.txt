@@ -1,15 +1,3 @@
-CLR #0
-CLR #1
-CLR #2
-CLR #3
-CLR #4
-CLR #5
-CLR #6
-CLR #7
-CLR #8
-CLR #9
-CLR #10
-
 SKZ #0
 JMP +15
 SKZ #1

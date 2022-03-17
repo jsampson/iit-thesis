@@ -109,6 +109,7 @@ class Computer:
         if operation == "JMP":
             if operand == 0:
                 self.A = self.B
+                self.B = 0
                 delta_I = None
             else:
                 delta_I = operand
@@ -137,7 +138,7 @@ class Computer:
 
 
 def next_state(prev_state, write_callback=None):
-    computer = Computer(prev_state, prev_state, 0, write_callback)
+    computer = Computer(prev_state, 0, 0, write_callback)
     count = 0
     while True:
         count += 1
@@ -181,7 +182,7 @@ class Analyzer:
                 self.propagate_reads(i, i + 1)
                 self.propagate_write(i)
         for initial_state in range(2 ** bits):
-            causation = {key: {key} for key in range(bits)}
+            causation = {key: {} for key in range(bits)}
             following_state, count = next_state(
                 initial_state,
                 lambda i, target: self.stash_causation(i, target, causation),
