@@ -40,7 +40,7 @@ if len(sys.argv) > 2:
         command = "micro"
     else:
         command = "run"
-        starting_state = int(sys.argv[2], base=2)
+        starting_state = sys.argv[2]
 else:
     command = "analyze"
 
@@ -90,6 +90,8 @@ program_length = len(program)
 while len(program) < 256:
     program.append(("JMP", 0))
 
+zeroes = [False]*bits
+
 
 class Crash(Exception):
     pass
@@ -97,9 +99,9 @@ class Crash(Exception):
 
 class Computer:
     def __init__(self, A, B, I, write_callback=None):
-        self.A = A
-        self.B = B
-        self.I = I
+        self.A = A.copy()  # list of bool
+        self.B = B.copy()  # list of bool
+        self.I = I         # int
         self.__write_callback = write_callback
 
     def micro_step(self):
@@ -108,15 +110,14 @@ class Computer:
         operand = instruction[1]
         if operation == "JMP":
             if operand == 0:
-                self.A = self.B
-                self.B = 0
+                self.A[:] = self.B
+                self.B[:] = zeroes
                 delta_I = None
             else:
                 delta_I = operand
         else:
-            bit = 1 << (bits - operand - 1)
             if operation == "SKZ":
-                if self.A & bit:
+                if self.A[operand]:
                     delta_I = 1
                 else:
                     delta_I = 2
@@ -124,10 +125,10 @@ class Computer:
                 if self.__write_callback:
                     self.__write_callback(self.I, operand)
                 if operation == "SET":
-                    self.B |= bit
+                    self.B[operand] = True
                 else:
                     assert operation == "CLR"
-                    self.B &= ~bit
+                    self.B[operand] = False
                 delta_I = 1
         if delta_I is None:
             self.I = 0
@@ -138,7 +139,7 @@ class Computer:
 
 
 def next_state(prev_state, write_callback=None):
-    computer = Computer(prev_state, 0, 0, write_callback)
+    computer = Computer(prev_state, zeroes, 0, write_callback)
     count = 0
     while True:
         count += 1
@@ -150,10 +151,12 @@ def next_state(prev_state, write_callback=None):
             return computer.A, count
 
 
-def run_from(state):
+def run_from(state_str):
+    state = str_to_state(state_str)
+    assert len(state) == bits
     try:
         while state is not None:
-            print(f"\r{state:0{bits}b}", end="")
+            print(f"\r{state_to_str(state)}", end="")
             state, count = next_state(state)
             time.sleep(count * .1)
         print("\rcrash" + (" " * (bits - 5)))
@@ -181,13 +184,13 @@ class Analyzer:
             else:
                 self.propagate_reads(i, i + 1)
                 self.propagate_write(i)
-        for initial_state in range(2 ** bits):
+        for initial_state in gen_states():
             causation = {key: {} for key in range(bits)}
             following_state, count = next_state(
                 initial_state,
                 lambda i, target: self.stash_causation(i, target, causation),
             )
-            self.transitions.append((following_state, count))
+            self.transitions.append((initial_state, following_state, count))
             for target in causation:
                 for source in causation[target]:
                     self.connectivity[source][target] = 1
@@ -242,17 +245,30 @@ class Analyzer:
                         self.bb_candidates[i][1].add(target_operand)
 
 
-def split_state(state, b=bits):
-    return [int(c) for c in f"{state:0{b}b}"]
+def int_to_state(state_int, b=bits):
+    return [bool(state_int & (1 << i)) for i in range(b)]
 
 
-def reorder(big_endian, b=bits):
-    little_endian = []
-    for i in range(2 ** b):
-        le = f"{i:0{b}b}"
-        be = le[::-1]
-        little_endian.append(big_endian[int(be, base=2)])
-    return little_endian
+def state_to_int(state):
+    result = 0
+    for i in range(len(state)):
+        if state[i]:
+            result += 2**i
+    return result
+
+
+def str_to_state(state_str):
+    assert re.fullmatch("[01]+", state_str)
+    return [s=="1" for s in state_str]
+
+
+def state_to_str(state):
+    return "".join(["1" if s else "0" for s in state])
+
+
+def gen_states(b=bits):
+    for i in range(2**b):
+        yield int_to_state(i, b)
 
 
 def analyze():
@@ -260,22 +276,20 @@ def analyze():
     a.perform_analysis()
     if calculate_phi:
         network = pyphi.Network(
-            tpm=numpy.array(reorder([split_state(s) for s, c in a.transitions])),
+            tpm=numpy.array([t for s, t, c in a.transitions]),
             cm=numpy.array(a.connectivity),
         )
     print("Transition table:")
-    for initial_state in range(2 ** bits):
-        following_state, count = a.transitions[initial_state]
-        line = f"{initial_state:0{bits}b} -> "
+    for initial_state, following_state, count in a.transitions:
+        line = f"{state_to_str(initial_state)} -> "
         if following_state is None:
             line += "crash"
         else:
-            line += f"{following_state:0{bits}b}"
+            line += f"{state_to_str(following_state)}"
         line += f" in {count:2} micro steps"
         if calculate_phi:
-            state_array = split_state(initial_state)
             try:
-                phi = pyphi.compute.phi(pyphi.Subsystem(network, state_array))
+                phi = pyphi.compute.phi(pyphi.Subsystem(network, initial_state))
                 line += f" (phi = {phi})"
             except pyphi.exceptions.StateUnreachableError:
                 line += " (unreachable)"
@@ -321,23 +335,22 @@ def micro_analyze():
     i_bits = int.bit_length(program_length)
     total_bits = 2 * bits + i_bits
     transitions = []
-    for a in range(2 ** bits):
-        for b in range(2 ** bits):
-            for i in range(2 ** i_bits):
-                computer = Computer(a, b, i)
-                try:
-                    computer.micro_step()
-                except Crash:
-                    pass  # The registers are correct even when crashing.
-                assert computer.A < 2 ** bits
-                assert computer.B < 2 ** bits
-                if computer.I >= 2 ** i_bits:
-                    sys.exit("I exceeded given program length.")
-                transitions.append(
-                    (computer.A << (bits + i_bits))
-                    | (computer.B << i_bits)
-                    | computer.I
-                )
+    for abi in gen_states(total_bits):
+        a = abi[0:bits]
+        b = abi[bits:2*bits]
+        i = state_to_int(abi[2*bits:])
+        computer = Computer(a, b, i)
+        try:
+            computer.micro_step()
+        except Crash:
+            pass  # The registers are correct even when crashing.
+        assert len(computer.A) == bits
+        assert len(computer.B) == bits
+        if computer.I >= 2 ** i_bits:
+            sys.exit("I exceeded given program length.")
+        transitions.append(
+            (abi, computer.A + computer.B + int_to_state(computer.I, i_bits))
+        )
     connectivity = [[0 for _ in range(total_bits)] for _ in range(total_bits)]
     a_indexes = range(0, bits)
     b_indexes = range(bits, 2 * bits)
@@ -357,10 +370,9 @@ def micro_analyze():
         for col in i_indexes:
             connectivity[row][col] = 1
     print("Micro transition table:")
-    for initial_state in range(2 ** total_bits):
-        following_state = transitions[initial_state]
+    for initial_state, following_state in transitions:
         print(
-            f"{initial_state:0{total_bits}b} -> {following_state:0{total_bits}b}"
+            f"{state_to_str(initial_state)} -> {state_to_str(following_state)}"
         )
     print()
     print("Micro connectivity matrix:")
@@ -369,17 +381,11 @@ def micro_analyze():
     if calculate_phi:
         print()
         network = pyphi.Network(
-            tpm=numpy.array(
-                reorder(
-                    [split_state(s, total_bits) for s in transitions],
-                    total_bits,
-                )
-            ),
+            tpm=numpy.array([t for s, t in transitions]),
             cm=numpy.array(connectivity),
         )
-        for a in range(2 ** bits):
-            state = (a << (bits + i_bits)) | (a << i_bits)
-            state_array = split_state(state, total_bits)
+        for a in gen_states():
+            state_array = a + [False]*(bits+i_bits)
             print(f"Computing phi for {state:0{total_bits}b}...")
             try:
                 phi = pyphi.compute.phi(pyphi.Subsystem(network, state_array))
