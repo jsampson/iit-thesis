@@ -38,6 +38,7 @@ if len(sys.argv) > 2:
         command = "diagram"
     elif sys.argv[2] == "micro":
         command = "micro"
+        micro_state = sys.argv[3] if len(sys.argv) > 3 else None
     else:
         command = "run"
         starting_state = sys.argv[2]
@@ -90,7 +91,7 @@ program_length = len(program)
 while len(program) < 256:
     program.append(("JMP", 0))
 
-zeroes = [False]*bits
+zeroes = [0]*bits
 
 
 class Crash(Exception):
@@ -99,8 +100,8 @@ class Crash(Exception):
 
 class Computer:
     def __init__(self, A, B, I, write_callback=None):
-        self.A = A.copy()  # list of bool
-        self.B = B.copy()  # list of bool
+        self.A = A.copy()  # list of int (0 or 1)
+        self.B = B.copy()  # list of int (0 or 1)
         self.I = I         # int
         self.__write_callback = write_callback
 
@@ -125,10 +126,10 @@ class Computer:
                 if self.__write_callback:
                     self.__write_callback(self.I, operand)
                 if operation == "SET":
-                    self.B[operand] = True
+                    self.B[operand] = 1
                 else:
                     assert operation == "CLR"
-                    self.B[operand] = False
+                    self.B[operand] = 0
                 delta_I = 1
         if delta_I is None:
             self.I = 0
@@ -152,8 +153,7 @@ def next_state(prev_state, write_callback=None):
 
 
 def run_from(state_str):
-    state = str_to_state(state_str)
-    assert len(state) == bits
+    state = str_to_state(state_str, bits)
     try:
         while state is not None:
             print(f"\r{state_to_str(state)}", end="")
@@ -246,7 +246,7 @@ class Analyzer:
 
 
 def int_to_state(state_int, b=bits):
-    return [bool(state_int & (1 << i)) for i in range(b)]
+    return [int(bool(state_int & (1 << i))) for i in range(b)]
 
 
 def state_to_int(state):
@@ -257,13 +257,14 @@ def state_to_int(state):
     return result
 
 
-def str_to_state(state_str):
-    assert re.fullmatch("[01]+", state_str)
-    return [s=="1" for s in state_str]
+def str_to_state(state_str, b=bits):
+    if not re.fullmatch(f"[01]{{{b}}}", state_str):
+        sys.exit(f"Given state <{state_str}> should be {b} bits.")
+    return [int(s) for s in state_str]
 
 
 def state_to_str(state):
-    return "".join(["1" if s else "0" for s in state])
+    return "".join([str(s) for s in state])
 
 
 def gen_states(b=bits):
@@ -369,29 +370,49 @@ def micro_analyze():
             connectivity[row][col] = 1
         for col in i_indexes:
             connectivity[row][col] = 1
-    print("Micro transition table:")
-    for initial_state, following_state in transitions:
-        print(
-            f"{state_to_str(initial_state)} -> {state_to_str(following_state)}"
-        )
-    print()
-    print("Micro connectivity matrix:")
-    for row in connectivity:
-        print("[" + ", ".join([str(value) for value in row]) + "]")
     if calculate_phi:
         print()
         network = pyphi.Network(
             tpm=numpy.array([t for s, t in transitions]),
             cm=numpy.array(connectivity),
         )
-        for a in gen_states():
-            state_array = a + [False]*(bits+i_bits)
-            print(f"Computing phi for {state:0{total_bits}b}...")
+        for state_array in (
+            [str_to_state(micro_state, total_bits)]
+            if micro_state
+            else (a + [0]*(bits+i_bits) for a in gen_states())
+        ):
+            print(f"Computing phi for {state_to_str(state_array)}...")
             try:
                 phi = pyphi.compute.phi(pyphi.Subsystem(network, state_array))
                 print(f"* Phi = {phi}")
             except pyphi.exceptions.StateUnreachableError:
                 print("* Unreachable")
+    else:
+        print("import numpy")
+        print("import pyphi")
+        print()
+        print("tpm = [")
+        for initial_state, following_state in transitions:
+            print("    [" + ", ".join([str(value) for value in following_state]) + "],", end="")
+            print("  # <- [" + ", ".join([str(value) for value in initial_state]) + "]")
+        print("]")
+        print()
+        print("cm = [")
+        for row in connectivity:
+            print("    [" + ", ".join([str(value) for value in row]) + "],")
+        print("]")
+        print()
+        state = str_to_state(micro_state, total_bits) if micro_state else [0]*total_bits
+        print("state = [" + ", ".join([str(value) for value in state]) + "]")
+        print()
+        print("network = pyphi.Network(tpm=numpy.array(tpm), cm=numpy.array(cm))")
+        print("subsystem = pyphi.Subsystem(network, state)")
+        print()
+        print("try:")
+        print("    phi = pyphi.compute.phi(subsystem)")
+        print("    print(f\"Phi = {phi}\")")
+        print("except pyphi.exceptions.StateUnreachableError:")
+        print("    print(\"Unreachable\")")
 
 
 def diagram():
