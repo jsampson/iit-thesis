@@ -23,11 +23,14 @@ run.py <file> phi
     Analyzes the given program as before, and also calculates IIT's phi value
     for every macro state (assuming that each bit is a valid macro element).
 
-run.py <file> micro
+run.py <file> micro [<state>]
 
-    Produces a transition table and connectivity matrix for the causal model of
-    the computer with the given program, where the micro elements are just the
-    bits of the A, B, and I registers that are actually used by the program.
+    Generates Python code for calculating phi for the micro-causal model of
+    the toy computer with the given toy program, containing appropriate tpm,
+    cm, and state arrays plus the code to invoke PyPhi. The state argument is
+    optional and defaults to an all-zero value. It is formatted as AAABBBIIIII,
+    where there are just as many A, B, and I bits as are needed for the program
+    and they are all in little-endian order.
 
 run.py <file> micro phi
 
