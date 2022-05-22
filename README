@@ -61,6 +61,11 @@ pqr.txt
 
     A straightforward implementation of the "PQR" system.
 
+xor3.txt
+
+    Three XOR gates, where the inputs to each one are the outputs from the
+    other two.
+
 counter.txt
 
     A four-bit counter.
