@@ -1,0 +1,1 @@
+bug in black-box assignment for min*.txt? the initial SKZ is getting no assignment

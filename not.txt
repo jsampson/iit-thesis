@@ -1,0 +1,4 @@
+SET #0
+SKZ #0
+CLR #0
+END
