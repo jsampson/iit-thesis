@@ -333,7 +333,7 @@ def analyze():
 
 
 def micro_analyze():
-    i_bits = int.bit_length(program_length)
+    i_bits = int.bit_length(program_length-1)
     total_bits = 2 * bits + i_bits
     transitions = []
     for abi in gen_states(total_bits):
@@ -379,7 +379,7 @@ def micro_analyze():
         for state_array in (
             [str_to_state(micro_state, total_bits)]
             if micro_state
-            else (a + [0]*(bits+i_bits) for a in gen_states())
+            else gen_states(total_bits)
         ):
             print(f"Computing phi for {state_to_str(state_array)}...")
             try:
