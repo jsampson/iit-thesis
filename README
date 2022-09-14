@@ -1,7 +1,7 @@
 This is the code for my forthcoming master's thesis, Integrated Information
 Theory of Consciousness in Conventional Computing.
 
-The "circ" subdirectory contians a circuit simulator used to generate all the
+The "circ" subdirectory contains a circuit simulator used to generate all the
 circuit timing diagrams in the thesis. It is run as circ/main.py <file>, where
 <file> is one of the output filenames: idealized.tex, jagged.tex, flatline.tex,
 or clocked.tex. The output is a TikZ picture for use in a LaTeX document.
