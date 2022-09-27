@@ -1,0 +1,4 @@
+This is just some quick-and-dirty simulation code that I wrote up to verify the
+ON and OFF states of the J-K flip-flop circuit that I diagrammed in the thesis.
+
+To run the tests: python3 -m unittest
