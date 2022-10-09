@@ -1,0 +1,46 @@
+SKZ #0
+SET #3
+SKZ #0
+SET #4
+
+SKZ #1
+SET #5
+SKZ #1
+SET #6
+
+SKZ #2
+SET #7
+SKZ #2
+SET #8
+
+SKZ #5
+JMP +5
+CLR #0
+SKZ #7
+SET #0
+JMP +4
+SET #0
+SKZ #7
+CLR #0
+
+SKZ #3
+JMP +5
+CLR #1
+SKZ #8
+SET #1
+JMP +4
+SET #1
+SKZ #8
+CLR #1
+
+SKZ #4
+JMP +5
+CLR #2
+SKZ #6
+SET #2
+JMP +4
+SET #2
+SKZ #6
+CLR #2
+
+END
