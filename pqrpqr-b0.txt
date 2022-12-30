@@ -1,0 +1,35 @@
+SKZ #1
+SET #0
+SKZ #2
+SET #0
+
+SKZ #2
+SET #1
+
+SKZ #0
+JMP +4
+SKZ #1
+SET #2
+JMP +5
+SKZ #1
+JMP +3
+SET #2
+NOP
+
+SKZ #4
+SET #3
+SKZ #5
+SET #3
+
+SKZ #5
+SET #4
+
+SKZ #3
+JMP +4
+SKZ #4
+SET #5
+END
+SKZ #4
+END
+SET #5
+END
