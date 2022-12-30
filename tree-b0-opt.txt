@@ -1,0 +1,34 @@
+SKZ #0
+JMP +14
+
+SKZ #1
+JMP +7
+
+SKZ #2
+JMP +2
+END
+SET #0
+SET #1
+END
+
+SET #0
+SET #2
+SKZ #2
+SET #1
+END
+
+SKZ #1
+JMP +8
+
+SET #2
+SKZ #2
+JMP +2
+END
+SET #0
+SET #1
+END
+
+SET #0
+SKZ #2
+SET #1
+END

@@ -96,10 +96,20 @@ optimized.txt
 
     The PQR system, but with some reads shared between blocks.
 
-unrolled.txt
+tree.txt
 
     The PQR system, but implemented as a full state transition table using a
     branching tree structure.
+
+tree-b0.txt
+
+    A variant of tree.txt where all of the CLR instructions are removed
+    because they are redundant given that B=0 at the start of the program.
+
+tree-b0-opt.txt
+
+    A hand-optimized version of tree-b0.txt that extracts common code
+    between branches and eliminates the JMP for single-instruction branches.
 
 pqrpqr.txt
 
@@ -107,9 +117,8 @@ pqrpqr.txt
 
 unrolled-circuit.txt
 
-    A different meaning of "unrolled": Simulating an 11-bit system that
-    contains 8 bits for the actual states and 3 bits that appear to
-    functionally imitate the PQR system.
+    Simulating an 11-bit system that contains 8 bits for the actual states
+    and 3 bits that appear to functionally imitate the PQR system.
 
 unrolled-short-circuit.txt
 
