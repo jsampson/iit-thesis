@@ -1,33 +1,26 @@
 SKZ #0
-JMP +14
+JMP +6
 
 SKZ #1
-JMP +7
+JMP +13
 
 SKZ #2
-JMP +2
-END
-SET #0
-SET #1
-END
-
-SET #0
-SET #2
-SKZ #2
-SET #1
-END
-
-SKZ #1
 JMP +8
+END
+
+SKZ #1
+JMP +9
 
 SET #2
 SKZ #2
 JMP +2
 END
+
 SET #0
 SET #1
 END
 
+SET #2
 SET #0
 SKZ #2
 SET #1
