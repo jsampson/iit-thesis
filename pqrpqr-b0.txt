@@ -11,9 +11,9 @@ JMP +4
 SKZ #1
 SET #2
 JMP +5
-SKZ #1
-JMP +3
 SET #2
+SKZ #1
+CLR #2
 NOP
 
 SKZ #4
@@ -29,7 +29,7 @@ JMP +4
 SKZ #4
 SET #5
 END
-SKZ #4
-END
 SET #5
+SKZ #4
+CLR #5
 END

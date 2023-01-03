@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import json
 import re
 import sys
 import time
@@ -39,6 +40,11 @@ if len(sys.argv) > 2:
     elif sys.argv[2] == "micro":
         command = "micro"
         micro_state = sys.argv[3] if len(sys.argv) > 3 else None
+    elif sys.argv[2] == "test":
+        command = "test"
+        test_stage = sys.argv[3]
+        if test_stage not in ("prep", "check"):
+            sys.exit("Test stage must be 'prep' or 'check', not '{test_stage}'.")
     else:
         command = "run"
         starting_state = sys.argv[2]
@@ -482,12 +488,49 @@ def diagram():
     print(r"\end{tikzpicture}")
 
 
+def test_prep():
+    a = Analyzer()
+    a.perform_analysis()
+    expected = a.transitions
+    print("[")
+    for i in range(len(expected)):
+        print("  " + json.dumps(expected[i]) + ("," if i < len(expected)-1 else ""))
+    print("]")
+
+
+def test_check():
+    expected = json.load(sys.stdin)
+    a = Analyzer()
+    a.perform_analysis()
+    actual = a.transitions
+    if len(actual) != len(expected):
+        sys.exit(f"Expected {len(expected)} transitions but actually {len(actual)}.")
+    mismatches = []
+    for i in range(len(actual)):
+        if expected[i][0] != actual[i][0]:
+            sys.exit(f"Expected starting state {expected[i][0]} but actually {actual[i][0]}.")
+        if expected[i][1] != actual[i][1]:
+            mismatches.append((expected[i][0], expected[i][1], actual[i][1]))
+    if len(mismatches) == 0:
+        print("Test passed!")
+    else:
+        print("Test failed. Mismatched transitions:")
+        for initial_state, expected_state, actual_state in mismatches:
+            print(f"{state_to_str(initial_state)} -> {state_to_str(expected_state)} vs. {state_to_str(actual_state)}")
+        sys.exit(1)
+
+
 if command == "run":
     run_from(starting_state)
 elif command == "analyze":
     analyze()
 elif command == "diagram":
     diagram()
+elif command == "test":
+    if test_stage == "prep":
+        test_prep()
+    else:
+        test_check()
 else:
     assert command == "micro"
     micro_analyze()
