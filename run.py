@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # Justin's IIT Thesis - Toy Computer Emulator
-# Copyright 2022 by Justin T. Sampson
+# Copyright 2022-2023 by Justin T. Sampson
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -105,11 +105,10 @@ class Crash(Exception):
 
 
 class Computer:
-    def __init__(self, A, B, I, write_callback=None):
+    def __init__(self, A, B, I):
         self.A = A.copy()  # list of int (0 or 1)
         self.B = B.copy()  # list of int (0 or 1)
         self.I = I         # int
-        self.__write_callback = write_callback
 
     def micro_step(self):
         instruction = program[self.I]
@@ -129,8 +128,6 @@ class Computer:
                 else:
                     delta_I = 2
             else:
-                if self.__write_callback:
-                    self.__write_callback(self.I, operand)
                 if operation == "SET":
                     self.B[operand] = 1
                 else:
@@ -145,8 +142,8 @@ class Computer:
             raise Crash
 
 
-def next_state(prev_state, write_callback=None):
-    computer = Computer(prev_state, zeroes, 0, write_callback)
+def next_state(prev_state):
+    computer = Computer(prev_state, zeroes, 0)
     count = 0
     while True:
         count += 1
@@ -172,83 +169,59 @@ def run_from(state_str):
 
 class Analyzer:
     def __init__(self):
-        self.active_reads = [{} for _ in range(256)]
         self.bb_candidates = [(set(), set()) for _ in range(256)]
         self.connectivity = [[0 for _ in range(bits)] for _ in range(bits)]
         self.transitions = []
 
     def perform_analysis(self):
-        for i in range(256):
-            instruction = program[i]
-            operation = instruction[0]
-            operand = instruction[1]
-            if operation == "JMP":
-                self.propagate_reads(i, i + operand)
-            elif operation == "SKZ":
-                self.propagate_reads(i, i + 1, 1)
-                self.propagate_reads(i, i + 2, 0)
-            else:
-                self.propagate_reads(i, i + 1)
-                self.propagate_write(i)
+        ended_paths = []
+        crashed_paths = []
+
         for initial_state in gen_states():
-            causation = {key: {} for key in range(bits)}
-            following_state, count = next_state(
-                initial_state,
-                lambda i, target: self.stash_causation(i, target, causation),
-            )
-            self.transitions.append((initial_state, following_state, count))
-            for target in causation:
-                for source in causation[target]:
-                    self.connectivity[source][target] = 1
+            computer = Computer(initial_state, zeroes, 0)
+            path = []
+            while True:
+                path.append(computer.I)
+                try:
+                    computer.micro_step()
+                except Crash:
+                    following_state = None
+                    break
+                if computer.I == 0:
+                    following_state = computer.A
+                    break
+            self.transitions.append((initial_state, following_state, len(path)))
+            (crashed_paths if following_state is None else ended_paths).append(path)
 
-    def stash_causation(self, I, target, causation):
-        reads = self.active_reads[I]
-        result = set()
-        for key in reads:
-            values = reads[key]
-            if (len(values[0]) == 0) ^ (len(values[1]) == 0):
-                source = program[key][1]
-                result.add(source)
-        causation[target] = result
+        paths_per_read_per_inst = [[0 for _ in range(256)] for _ in range(256)]
 
-    def propagate_reads(self, from_index, to_index, add_value=None):
-        if from_index < to_index < 256:
-            from_reads = self.active_reads[from_index]
-            to_reads = self.active_reads[to_index]
-            for key in from_reads:
-                self.add_to_reads(to_reads, key, 0,
-                    [path + [from_index] for path in from_reads[key][0]]
-                )
-                self.add_to_reads(to_reads, key, 1,
-                    [path + [from_index] for path in from_reads[key][1]]
-                )
-            if add_value is not None:
-                self.add_to_reads(to_reads, from_index, add_value, [[from_index]])
+        for path in ended_paths + crashed_paths:
+            reads = []
+            for i in path:
+                if program[i][0] == "SKZ":
+                    reads.append(i)
+                for r in reads:
+                    paths_per_read_per_inst[i][r] += 1
 
-    def add_to_reads(self, to_reads, key, value, new_paths):
-        if key in to_reads:
-            value_paths = to_reads[key]
-        else:
-            value_paths = ([], [])
-            to_reads[key] = value_paths
-        value_paths[value].extend(new_paths)
-
-    def propagate_write(self, target):
-        target_instruction = program[target]
-        target_operand = target_instruction[1]
-        reads_at_write = self.active_reads[target]
-        self.bb_candidates[target][1].add(target_operand)
-        for source in reads_at_write:
-            if_0, if_1 = reads_at_write[source]
-            if (len(if_0) == 0) ^ (len(if_1) == 0):
-                source_instruction = program[source]
-                source_operand = source_instruction[1]
-                self.bb_candidates[target][0].add(source_operand)
-                paths = if_0 or if_1
-                for path in paths:
-                    for i in path:
-                        self.bb_candidates[i][0].add(source_operand)
-                        self.bb_candidates[i][1].add(target_operand)
+        for path in ended_paths:
+            reads = []
+            for i in path:
+                reads = [
+                    r for r in reads
+                    if paths_per_read_per_inst[i][r] != paths_per_read_per_inst[r][r]
+                ]
+                operation = program[i][0]
+                if operation == "SKZ":
+                    reads.append(i)
+                elif operation == "SET" or operation == "CLR":
+                    for r in reads:
+                        source = program[r][1]
+                        target = program[i][1]
+                        self.connectivity[source][target] = 1
+                        for x in path:
+                            if r <= x <= i:
+                                self.bb_candidates[x][0].add(source)
+                                self.bb_candidates[x][1].add(target)
 
 
 def int_to_state(state_int, b=bits):
