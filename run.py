@@ -499,38 +499,44 @@ def test_check():
 def generate_optimized_program():
     a = Analyzer()
     a.perform_analysis()
-    for instruction in generate_branch(a.transitions, []):
+    for instruction in generate_branch(a.transitions, list(range(bits)), [None for b in range(bits)]):
         print(instruction)
 
 
-def generate_branch(transitions, bit_values):
-    result = []
-    if len(bit_values) == bits:
+def generate_branch(transitions, remaining_bits, bit_values):
+    if remaining_bits == []:
         next_state = [t for s, t, c in transitions if s == bit_values][0]
-        for bit in range(bits):
-            if next_state[bit]:
-                result.append(f"SET #{bit}")
+        return [f"SET #{bit}" for bit in range(bits) if next_state[bit]] + ["END"]
+    else:
+        read_bit = remaining_bits[0]
+        remaining_bits = remaining_bits[1:]
+        bit_values[read_bit] = 0
+        left_branch = generate_branch(transitions, remaining_bits, bit_values)
+        bit_values[read_bit] = 1
+        right_branch = generate_branch(transitions, remaining_bits, bit_values)
+        bit_values[read_bit] = None
+        return combine_branches(read_bit, left_branch, right_branch)
+
+
+def combine_branches(read_bit, left_branch, right_branch):
+    result = []
+    left_sets = extract_set_instructions(left_branch)
+    right_sets = extract_set_instructions(right_branch)
+    for s in left_sets.copy():
+        if s in right_sets:
+            result.append(s)
+            left_sets.remove(s)
+            right_sets.remove(s)
+    result.append(f"SKZ #{read_bit}")
+    if left_sets == [] and left_branch == ["END"] and len(right_sets) == 1 and right_branch == ["END"]:
+        result.append(right_sets[0])
         result.append("END")
     else:
-        left_branch = generate_branch(transitions, bit_values + [0])
-        right_branch = generate_branch(transitions, bit_values + [1])
-        left_sets = extract_set_instructions(left_branch)
-        right_sets = extract_set_instructions(right_branch)
-        for s in left_sets.copy():
-            if s in right_sets:
-                result.append(s)
-                left_sets.remove(s)
-                right_sets.remove(s)
-        result.append(f"SKZ #{len(bit_values)}")
-        if left_sets == [] and left_branch == ["END"] and len(right_sets) == 1 and right_branch == ["END"]:
-            result.append(right_sets[0])
-            result.append("END")
-        else:
-            result.append(f"JMP +{len(left_sets)+len(left_branch)+1}")
-            result.extend(left_sets)
-            result.extend(left_branch)
-            result.extend(right_sets)
-            result.extend(right_branch)
+        result.append(f"JMP +{len(left_sets)+len(left_branch)+1}")
+        result.extend(left_sets)
+        result.extend(left_branch)
+        result.extend(right_sets)
+        result.extend(right_branch)
     return result
 
 
