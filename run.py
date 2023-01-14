@@ -499,23 +499,43 @@ def test_check():
 def generate_optimized_program():
     a = Analyzer()
     a.perform_analysis()
-    for instruction in generate_branch(a.transitions, list(range(bits)), [None for b in range(bits)]):
+    best_program = None
+    best_score = None
+    for gen_program in generate_branches(a.transitions, list(range(bits)), [None for b in range(bits)]):
+        gen_score = optimization_score(gen_program)
+        if best_score is None or gen_score < best_score:
+            best_score = gen_score
+            best_program = gen_program
+    for instruction in best_program:
         print(instruction)
 
 
-def generate_branch(transitions, remaining_bits, bit_values):
+def optimization_score(gen_program):
+    return (
+        len([jmp for jmp in gen_program if jmp.startswith("JMP")]),
+        len(gen_program),
+    )
+
+
+def generate_branches(transitions, remaining_bits, bit_values):
+    # number of results is F(n) = n * F(n-1)^2; F(0) = 1 --> 1, 1, 2, 12, 576, 1658880
     if remaining_bits == []:
         next_state = [t for s, t, c in transitions if s == bit_values][0]
-        return [f"SET #{bit}" for bit in range(bits) if next_state[bit]] + ["END"]
+        return [[f"SET #{bit}" for bit in range(bits) if next_state[bit]] + ["END"]]
     else:
-        read_bit = remaining_bits[0]
-        remaining_bits = remaining_bits[1:]
-        bit_values[read_bit] = 0
-        left_branch = generate_branch(transitions, remaining_bits, bit_values)
-        bit_values[read_bit] = 1
-        right_branch = generate_branch(transitions, remaining_bits, bit_values)
-        bit_values[read_bit] = None
-        return combine_branches(read_bit, left_branch, right_branch)
+        result = []
+        for read_bit in remaining_bits:
+            sub_remaining_bits = remaining_bits.copy()
+            sub_remaining_bits.remove(read_bit)
+            bit_values[read_bit] = 0
+            left_branches = generate_branches(transitions, sub_remaining_bits, bit_values)
+            bit_values[read_bit] = 1
+            right_branches = generate_branches(transitions, sub_remaining_bits, bit_values)
+            bit_values[read_bit] = None
+            for left_branch in left_branches:
+                for right_branch in right_branches:
+                    result.append(combine_branches(read_bit, left_branch, right_branch))
+        return result
 
 
 def combine_branches(read_bit, left_branch, right_branch):
@@ -523,16 +543,16 @@ def combine_branches(read_bit, left_branch, right_branch):
         return left_branch
 
     result = []
-    left_sets = extract_set_instructions(left_branch)
-    right_sets = extract_set_instructions(right_branch)
+    left_sets, left_rest = extract_set_instructions(left_branch)
+    right_sets, right_rest = extract_set_instructions(right_branch)
     for s in left_sets.copy():
         if s in right_sets:
             result.append(s)
             left_sets.remove(s)
             right_sets.remove(s)
 
-    left_branch = left_sets + left_branch
-    right_branch = right_sets + right_branch
+    left_branch = left_sets + left_rest
+    right_branch = right_sets + right_rest
 
     result.append(f"SKZ #{read_bit}")
 
@@ -553,15 +573,20 @@ def combine_branches(read_bit, left_branch, right_branch):
             result.append(f"JMP +{len(left_branch)+1}")
             result.extend(left_branch)
             result.extend(right_branch)
-    return result
+    return tuple(result)
 
 
 def extract_set_instructions(instructions):
     set_instructions = []
-    while instructions[0].startswith("SET"):
-        set_instructions.append(instructions[0])
-        del instructions[0]
-    return set_instructions
+    rest_instructions = []
+    in_sets = True
+    for instruction in instructions:
+        if in_sets and instruction.startswith("SET"):
+            set_instructions.append(instruction)
+        else:
+            in_sets = False
+            rest_instructions.append(instruction)
+    return set_instructions, rest_instructions
 
 
 if command == "run":
