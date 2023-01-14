@@ -35,7 +35,9 @@ if len(sys.argv) > 2 and sys.argv[-1] == "phi":
     calculate_phi = True
 
 if len(sys.argv) > 2:
-    if sys.argv[2] == "diagram":
+    if sys.argv[2] == "optimize":
+        command = "optimize"
+    elif sys.argv[2] == "diagram":
         command = "diagram"
     elif sys.argv[2] == "micro":
         command = "micro"
@@ -494,6 +496,28 @@ def test_check():
         sys.exit(1)
 
 
+def generate_optimized_program():
+    a = Analyzer()
+    a.perform_analysis()
+    for instruction in generate_branch(a.transitions, []):
+        print(instruction)
+
+
+def generate_branch(transitions, bit_values):
+    if len(bit_values) == bits:
+        next_state = [t for s, t, c in transitions if s == bit_values][0]
+        result = []
+        for bit in range(bits):
+            if next_state[bit]:
+                result.append(f"SET #{bit}")
+        result.append("END")
+        return result
+    else:
+        left_branch = generate_branch(transitions, bit_values + [0])
+        right_branch = generate_branch(transitions, bit_values + [1])
+        return [f"SKZ #{len(bit_values)}", f"JMP +{len(left_branch)+1}"] + left_branch + right_branch
+
+
 if command == "run":
     run_from(starting_state)
 elif command == "analyze":
@@ -505,6 +529,8 @@ elif command == "test":
         test_prep()
     else:
         test_check()
+elif command == "optimize":
+    generate_optimized_program()
 else:
     assert command == "micro"
     micro_analyze()

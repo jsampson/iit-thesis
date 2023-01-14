@@ -1,10 +1,12 @@
 This is the code for my forthcoming master's thesis, Integrated Information
 Theory of Consciousness in Conventional Computing.
 
+
 The "circ" subdirectory contains a circuit simulator used to generate all the
 circuit timing diagrams in the thesis. It is run as circ/main.py <file>, where
 <file> is one of the output filenames: idealized.tex, jagged.tex, flatline.tex,
 or clocked.tex. The output is a TikZ picture for use in a LaTeX document.
+
 
 The root directory contains an emulator and dataflow analyzer for the toy
 computer design described in the thesis. The toy computer contains three
@@ -29,7 +31,8 @@ At the start of each iteration of a program, B and I will be zero while A can
 have any starting state. Each program runs until an END instruction and then
 repeats from the beginning.
 
-The run.py script has six running modes:
+
+The run.py script has several running modes:
 
 run.py <file> <state>
 
@@ -65,6 +68,21 @@ run.py <file> diagram
     Produces a LaTeX diagram of the program, its control flow, and "black box"
     analysis.
 
+run.py <file> test prep
+
+    Outputs an intermediate representation that can be passed into the "test
+    check" command to compare the behavior of one program with another.
+
+run.py <file> test check
+
+    Compares the behavior of the given progam to the behavior of the program
+    that was input to a "test prep" command piped into this one. The exit code
+    will be 0 if the two programs behave identically and non-zero otherwise.
+
+run.py <file> optimize
+
+    Generates an optimized program with the same behavior as the input program.
+
 In each of those, <file> can be the name of a file containing a program in the
 toy computer's assembly language, or it can be "-" to read from the standard
 input. If given, <state> is a binary number (e.g. "101") specifying the initial
@@ -76,6 +94,7 @@ packages of Python 3. The commands with "phi" require PyPhi to be installed.
 The Dockerfile is provided to ensure that PyPhi and its dependencies can be
 installed successfully. The build-image.sh and run-all.sh scripts build the
 image and run it on all of the provided example programs, respectively.
+
 
 The various *.txt files are example programs as describe in the thesis:
 
@@ -127,4 +146,4 @@ unrolled-short-circuit.txt
     one.
 
 
-Copyright 2022 by Justin T. Sampson
+Copyright 2022-2023 by Justin T. Sampson
