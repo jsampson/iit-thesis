@@ -504,18 +504,42 @@ def generate_optimized_program():
 
 
 def generate_branch(transitions, bit_values):
+    result = []
     if len(bit_values) == bits:
         next_state = [t for s, t, c in transitions if s == bit_values][0]
-        result = []
         for bit in range(bits):
             if next_state[bit]:
                 result.append(f"SET #{bit}")
         result.append("END")
-        return result
     else:
         left_branch = generate_branch(transitions, bit_values + [0])
         right_branch = generate_branch(transitions, bit_values + [1])
-        return [f"SKZ #{len(bit_values)}", f"JMP +{len(left_branch)+1}"] + left_branch + right_branch
+        left_sets = extract_set_instructions(left_branch)
+        right_sets = extract_set_instructions(right_branch)
+        for s in left_sets.copy():
+            if s in right_sets:
+                result.append(s)
+                left_sets.remove(s)
+                right_sets.remove(s)
+        result.append(f"SKZ #{len(bit_values)}")
+        if left_sets == [] and left_branch == ["END"] and len(right_sets) == 1 and right_branch == ["END"]:
+            result.append(right_sets[0])
+            result.append("END")
+        else:
+            result.append(f"JMP +{len(left_sets)+len(left_branch)+1}")
+            result.extend(left_sets)
+            result.extend(left_branch)
+            result.extend(right_sets)
+            result.extend(right_branch)
+    return result
+
+
+def extract_set_instructions(instructions):
+    set_instructions = []
+    while instructions[0].startswith("SET"):
+        set_instructions.append(instructions[0])
+        del instructions[0]
+    return set_instructions
 
 
 if command == "run":
