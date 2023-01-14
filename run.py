@@ -519,6 +519,9 @@ def generate_branch(transitions, remaining_bits, bit_values):
 
 
 def combine_branches(read_bit, left_branch, right_branch):
+    if left_branch == right_branch:
+        return left_branch
+
     result = []
     left_sets = extract_set_instructions(left_branch)
     right_sets = extract_set_instructions(right_branch)
@@ -527,16 +530,29 @@ def combine_branches(read_bit, left_branch, right_branch):
             result.append(s)
             left_sets.remove(s)
             right_sets.remove(s)
+
+    left_branch = left_sets + left_branch
+    right_branch = right_sets + right_branch
+
     result.append(f"SKZ #{read_bit}")
-    if left_sets == [] and left_branch == ["END"] and len(right_sets) == 1 and right_branch == ["END"]:
-        result.append(right_sets[0])
+
+    if right_branch == ["END"]:
         result.append("END")
-    else:
-        result.append(f"JMP +{len(left_sets)+len(left_branch)+1}")
-        result.extend(left_sets)
         result.extend(left_branch)
-        result.extend(right_sets)
+    elif left_branch == right_branch[1:]:
         result.extend(right_branch)
+    else:
+        offset = min(
+            (o for o in range(1, len(left_branch)-len(right_branch)+1) if right_branch == left_branch[o:]),
+            default=None
+        )
+        if offset is not None:
+            result.append(f"JMP +{offset+1}")
+            result.extend(left_branch)
+        else:
+            result.append(f"JMP +{len(left_branch)+1}")
+            result.extend(left_branch)
+            result.extend(right_branch)
     return result
 
 
