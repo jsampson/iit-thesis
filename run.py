@@ -214,9 +214,10 @@ class Analyzer:
                 if operation == "SKZ":
                     reads.append(i)
                 elif operation == "SET" or operation == "CLR":
+                    target = program[i][1]
+                    self.bb_candidates[i][1].add(target)
                     for r in reads:
                         source = program[r][1]
-                        target = program[i][1]
                         self.connectivity[source][target] = 1
                         for x in path:
                             if r <= x <= i:
