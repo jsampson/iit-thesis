@@ -21,6 +21,8 @@ import re
 import sys
 import time
 
+from dataclasses import dataclass
+
 
 if len(sys.argv) < 2:
     sys.exit("No program file name given.")
@@ -496,6 +498,13 @@ def test_check():
         sys.exit(1)
 
 
+@dataclass(frozen=True)
+class Candidate:
+    instructions: tuple[str, ...]
+    states: int
+    cost: int
+
+
 def generate_optimized_program():
     a = Analyzer()
     a.perform_analysis()
@@ -506,22 +515,20 @@ def generate_optimized_program():
         if best_score is None or gen_score < best_score:
             best_score = gen_score
             best_program = gen_program
-    for instruction in best_program:
+    for instruction in best_program.instructions:
         print(instruction)
 
 
-def optimization_score(gen_program):
-    return (
-        len([jmp for jmp in gen_program if jmp.startswith("JMP")]),
-        len(gen_program),
-    )
+def optimization_score(candidate):
+    return candidate.cost, len(candidate.instructions)
 
 
-def generate_branches(transitions, remaining_bits, bit_values):
+def generate_branches(transitions, remaining_bits, bit_values) -> list[Candidate]:
     # number of results is F(n) = n * F(n-1)^2; F(0) = 1 --> 1, 1, 2, 12, 576, 1658880
     if remaining_bits == []:
         next_state = [t for s, t, c in transitions if s == bit_values][0]
-        return [[f"SET #{bit}" for bit in range(bits) if next_state[bit]] + ["END"]]
+        instructions = [f"SET #{bit}" for bit in range(bits) if next_state[bit]] + ["END"]
+        return [Candidate(instructions=tuple(instructions), states=1, cost=len(instructions))]
     else:
         result = []
         for read_bit in remaining_bits:
@@ -538,42 +545,48 @@ def generate_branches(transitions, remaining_bits, bit_values):
         return result
 
 
-def combine_branches(read_bit, left_branch, right_branch):
-    if left_branch == right_branch:
-        return left_branch
+def combine_branches(read_bit: int, left_branch: Candidate, right_branch: Candidate) -> Candidate:
+    if left_branch.instructions == right_branch.instructions:
+        return Candidate(
+            instructions=left_branch.instructions,
+            states=left_branch.states + right_branch.states,
+            cost=left_branch.cost + right_branch.cost
+        )
 
     result = []
-    left_sets, left_rest = extract_set_instructions(left_branch)
-    right_sets, right_rest = extract_set_instructions(right_branch)
+    left_sets, left_rest = extract_set_instructions(left_branch.instructions)
+    right_sets, right_rest = extract_set_instructions(right_branch.instructions)
     for s in left_sets.copy():
         if s in right_sets:
             result.append(s)
             left_sets.remove(s)
             right_sets.remove(s)
 
-    left_branch = left_sets + left_rest
-    right_branch = right_sets + right_rest
+    left_full = left_sets + left_rest
+    right_full = right_sets + right_rest
 
     result.append(f"SKZ #{read_bit}")
+    cost = left_branch.cost + right_branch.cost + left_branch.states + right_branch.states
 
-    if right_branch == ["END"]:
+    if right_full == ["END"]:
         result.append("END")
-        result.extend(left_branch)
-    elif left_branch == right_branch[1:]:
-        result.extend(right_branch)
+        result.extend(left_full)
+    elif left_full == right_full[1:]:
+        result.extend(right_full)
     else:
+        cost += right_branch.states
         offset = min(
-            (o for o in range(1, len(left_branch)-len(right_branch)+1) if right_branch == left_branch[o:]),
+            (o for o in range(1, len(left_full)-len(right_full)+1) if right_full == left_full[o:]),
             default=None
         )
         if offset is not None:
             result.append(f"JMP +{offset+1}")
-            result.extend(left_branch)
+            result.extend(left_full)
         else:
-            result.append(f"JMP +{len(left_branch)+1}")
-            result.extend(left_branch)
-            result.extend(right_branch)
-    return tuple(result)
+            result.append(f"JMP +{len(left_full)+1}")
+            result.extend(left_full)
+            result.extend(right_full)
+    return Candidate(instructions=tuple(result), states=left_branch.states+right_branch.states, cost=cost)
 
 
 def extract_set_instructions(instructions):
