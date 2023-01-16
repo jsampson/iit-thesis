@@ -22,6 +22,7 @@ import sys
 import time
 
 from dataclasses import dataclass
+from typing import Generator
 
 
 if len(sys.argv) < 2:
@@ -510,11 +511,19 @@ def generate_optimized_program():
     a.perform_analysis()
     best_program = None
     best_score = None
-    for gen_program in generate_branches(a.transitions, list(range(bits)), [None for b in range(bits)]):
-        gen_score = optimization_score(gen_program)
-        if best_score is None or gen_score < best_score:
-            best_score = gen_score
-            best_program = gen_program
+    candidate_count = 0
+    try:
+        for gen_program in generate_branches(a.transitions, list(range(bits)), [None for b in range(bits)]):
+            candidate_count += 1
+            if candidate_count % 1000 == 0:
+                print(f"Processed {candidate_count} candidates, best score {best_score}", file=sys.stderr)
+            gen_score = optimization_score(gen_program)
+            if best_score is None or gen_score < best_score:
+                best_score = gen_score
+                best_program = gen_program
+    except KeyboardInterrupt:
+        print("Interrupted, printing best so far...", file=sys.stderr)
+    print(f"Final score {best_score}", file=sys.stderr)
     for instruction in best_program.instructions:
         print(instruction)
 
@@ -523,26 +532,23 @@ def optimization_score(candidate):
     return candidate.cost, len(candidate.instructions)
 
 
-def generate_branches(transitions, remaining_bits, bit_values) -> list[Candidate]:
+def generate_branches(transitions, remaining_bits, bit_values) -> Generator[Candidate, None, None]:
     # number of results is F(n) = n * F(n-1)^2; F(0) = 1 --> 1, 1, 2, 12, 576, 1658880
     if remaining_bits == []:
         next_state = [t for s, t, c in transitions if s == bit_values][0]
         instructions = [f"SET #{bit}" for bit in range(bits) if next_state[bit]] + ["END"]
-        return [Candidate(instructions=tuple(instructions), states=1, cost=len(instructions))]
+        yield Candidate(instructions=tuple(instructions), states=1, cost=len(instructions))
     else:
-        result = []
         for read_bit in remaining_bits:
             sub_remaining_bits = remaining_bits.copy()
             sub_remaining_bits.remove(read_bit)
-            bit_values[read_bit] = 0
-            left_branches = generate_branches(transitions, sub_remaining_bits, bit_values)
-            bit_values[read_bit] = 1
-            right_branches = generate_branches(transitions, sub_remaining_bits, bit_values)
-            bit_values[read_bit] = None
-            for left_branch in left_branches:
-                for right_branch in right_branches:
-                    result.append(combine_branches(read_bit, left_branch, right_branch))
-        return result
+            left_bit_values = bit_values.copy()
+            left_bit_values[read_bit] = 0
+            right_bit_values = bit_values.copy()
+            right_bit_values[read_bit] = 1
+            for left_branch in generate_branches(transitions, sub_remaining_bits, left_bit_values):
+                for right_branch in generate_branches(transitions, sub_remaining_bits, right_bit_values):
+                    yield combine_branches(read_bit, left_branch, right_branch)
 
 
 def combine_branches(read_bit: int, left_branch: Candidate, right_branch: Candidate) -> Candidate:
