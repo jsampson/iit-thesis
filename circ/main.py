@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # Justin's IIT Thesis - Digital Circuit Simulator
-# Copyright 2022 by Justin T. Sampson
+# Copyright 2022-2023 by Justin T. Sampson
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
