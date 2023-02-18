@@ -102,14 +102,37 @@ pqr.txt
 
     A straightforward implementation of the "PQR" system.
 
+pqr-b0.txt
+
+    The same as pqr.txt but without any CLR instructions.
+
+pqr-copy.txt
+
+    The PQR system but with a COPY gate added between the output of each
+    existing gate and the inputs it feeds into.
+
+pqr-gen-opt.txt
+
+    The output of the "optimize" command for pqr.txt.
+
 xor3.txt
 
     Three XOR gates, where the inputs to each one are the outputs from the
     other two.
 
+xor3-copy.txt
+
+    Three XOR gates, but with a COPY gate buffering every input between each
+    XOR and the next (for a total of six COPY gates). This system is used as
+    an example of black-boxing in the IIT literature.
+
 counter.txt
 
     A four-bit counter.
+
+counter-gen-opt.txt
+
+    The output of the "optimize" command for counter.txt.
 
 optimized.txt
 
@@ -134,16 +157,61 @@ pqrpqr.txt
 
     Two copies of the PQR system running in a single computer.
 
+pqrpqr-b0.txt
+
+    The same as pqrpqr.txt but without any CLR instructions.
+
 unrolled-circuit.txt
 
     Simulating an 11-bit system that contains 8 bits for the actual states
     and 3 bits that appear to functionally imitate the PQR system.
+
+unrolled-circuit-b0.txt
+
+    The same as unrolled-circuit.txt but without any CLR instructions.
 
 unrolled-short-circuit.txt
 
     A variant implementation of unrolled-circuit.txt that immediately
     converges to a single state bit being on if it starts with more than
     one.
+
+and3.txt
+
+    Three AND gates, where the inputs to each one are the outputs from the
+    other two.
+
+and6.txt
+
+    Six AND gates arranged in pairs, so that each pair provides the inputs to
+    both gates in the next pair. This system is used as an example of
+    coarse-graining in the IIT literature.
+
+copy.txt
+
+    A single COPY gate feeding back into itself.
+
+copy2.txt
+
+    Two COPY gates feeding into each other.
+
+copy-nop.txt
+
+    The same as copy.txt but with a NOP added before the END just to make it
+    four instructions long.
+
+end.txt
+
+    Just an END instruction, the shortest possible program.
+
+min0.txt and min1.txt
+
+    The shortest possible program with two bits, just differing in which bit
+    is written at the end.
+
+not.txt
+
+    A single NOT gate feedback back into itself.
 
 
 Copyright 2022-2023 by Justin T. Sampson

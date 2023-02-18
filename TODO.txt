@@ -1,4 +1,2 @@
-bug in black-box assignment for min*.txt? the initial SKZ is getting no assignment
-
 also should exclude any bits that aren't read by the program, since they
 will cause phi=0 as well
