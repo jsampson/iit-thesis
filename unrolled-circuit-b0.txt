@@ -1,0 +1,47 @@
+SKZ #4
+SET #1
+
+SKZ #6
+SET #4
+
+SKZ #2
+SET #5
+
+SKZ #1
+SET #6
+SKZ #7
+SET #6
+
+SKZ #3
+SET #7
+SKZ #5
+SET #7
+
+SKZ #4
+SET #8
+SKZ #5
+SET #8
+SKZ #6
+SET #8
+SKZ #7
+SET #8
+
+SKZ #2
+SET #9
+SKZ #3
+SET #9
+SKZ #6
+SET #9
+SKZ #7
+SET #9
+
+SKZ #1
+SET #10
+SKZ #3
+SET #10
+SKZ #5
+SET #10
+SKZ #7
+SET #10
+
+END
