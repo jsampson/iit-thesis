@@ -514,7 +514,7 @@ def generate_optimized_program():
     best_score = None
     candidate_count = 0
     try:
-        for gen_program in generate_branches(a.transitions, set(range(bits)), [None for b in range(bits)]):
+        for gen_program in generate_programs(a.transitions):
             candidate_count += 1
             if candidate_count % 1000 == 0:
                 print(f"Processed {candidate_count} candidates, best score {best_score}", file=sys.stderr)
@@ -539,14 +539,26 @@ def shuffled_iter(input_set):
     return shuffled
 
 
-def generate_branches(transitions, remaining_bits, bit_values) -> Generator[Candidate, None, None]:
+def generate_programs(transitions) -> Generator[Candidate, None, None]:
+    yield from generate_branches(transitions, set(range(bits)), [None for b in range(bits)], tuple(range(bits)))
+    #for set_order in generate_set_orders(set(range(bits))):
+    #    yield from generate_branches(transitions, set(range(bits)), [None for b in range(bits)], set_order)
+
+
+def generate_set_orders(remaining_bits) -> Generator[tuple[int, ...], None, None]:
+    if not remaining_bits:
+        yield ()
+    else:
+        bit = next(iter(remaining_bits))
+        for set_sub_order in generate_set_orders(remaining_bits - {bit}):
+            yield (bit,) + set_sub_order
+
+def generate_branches(transitions, remaining_bits, bit_values, set_order) -> Generator[Candidate, None, None]:
     # number of results without SET reordering is exactly F(n) = n * F(n-1)^2; F(0) = 1 --> 1, 1, 2, 12, 576, 1658880
-    # with SET reordering has upper bound def X(m, n=None): return X(m, m) if n is None else (factorial(m) if n==0 else n*(X(m, n-1)**2))
-    # --> 1, 1, 32, 20155392, 6979147079584381377970176, 5670414999880734763050754456076553289728000000000000000000000000000000000
     if remaining_bits == set():
         next_state = [t for s, t, c in transitions if s == bit_values][0]
-        bits_to_set = {b for b in range(bits) if next_state[b]}
-        yield from generate_leaf_candidates(bits_to_set)
+        bits_to_set = [b for b in set_order if next_state[b]]
+        yield Candidate(instructions=tuple([f"SET #{b}" for b in bits_to_set] + ["END"]), states=1, cost=len(bits_to_set)+1)
     else:
         for read_bit in shuffled_iter(remaining_bits):
             sub_remaining_bits = remaining_bits - {read_bit}
@@ -554,22 +566,9 @@ def generate_branches(transitions, remaining_bits, bit_values) -> Generator[Cand
             left_bit_values[read_bit] = 0
             right_bit_values = bit_values.copy()
             right_bit_values[read_bit] = 1
-            for left_branch in generate_branches(transitions, sub_remaining_bits, left_bit_values):
-                for right_branch in generate_branches(transitions, sub_remaining_bits, right_bit_values):
+            for left_branch in generate_branches(transitions, sub_remaining_bits, left_bit_values, set_order):
+                for right_branch in generate_branches(transitions, sub_remaining_bits, right_bit_values, set_order):
                     yield combine_branches(read_bit, left_branch, right_branch)
-
-
-def generate_leaf_candidates(bits_to_set) -> Generator[Candidate, None, None]:
-    if bits_to_set == set():
-        yield Candidate(instructions=("END",), states=1, cost=1)
-    else:
-        for bit in shuffled_iter(bits_to_set):
-            for sub_candidate in generate_leaf_candidates(bits_to_set - {bit}):
-                yield Candidate(
-                    instructions=(f"SET #{bit}",) + sub_candidate.instructions,
-                    states=1,
-                    cost=sub_candidate.cost + 1
-                )
 
 
 def combine_branches(read_bit: int, left_branch: Candidate, right_branch: Candidate) -> Candidate:

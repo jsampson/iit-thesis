@@ -47,6 +47,10 @@ def NAND(inputs):
     return not all(inputs)
 
 
+# TODO: play with shorter transition times and see if it tends to be more or less stable
+# TODO: redo the flatline example with a simpler transition multiplier
+
+
 if argv[1] == "idealized.tex":
     gates = [
         Gate([1, 2], True,  (1, 0, 0), OR, "P"),
@@ -72,6 +76,16 @@ elif argv[1] == "flatline.tex":
         Gate([1, 2], True,  ("1.0", "1.0208333333334"), OR, "P"),
         Gate([2],    False, ("0.5", "1.0208333333334"), COPY, "Q"),
         Gate([0, 1], False, ("1.5", "1.0208333333334"), XOR, "R"),
+    ]
+    width = F(5)
+    height = F(4)
+    padding = F(1, 5)
+    end_time = F(40)
+elif argv[1] == "new.tex":
+    gates = [
+        Gate([1, 2], True,  ("1", "0.47328"), OR, "P"),
+        Gate([2],    False, ("0.478263", "0.327894"), COPY, "Q"),
+        Gate([0, 1], False, ("1.34263", "0.563478"), XOR, "R"),
     ]
     width = F(5)
     height = F(4)
