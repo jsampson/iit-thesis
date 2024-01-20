@@ -1,8 +1,9 @@
 import numpy
-#import pyphi
+import pyphi
 from fractions import Fraction as F
 
 def gen_delta():
+    yield ("B", "AX")  # TODO: remove
     yield ("A", "B")
     yield ("A", "X")
     yield ("A", "BX")
@@ -24,9 +25,9 @@ def gen_epsilon(delta, prog):
         if not other:
             yield (f"I{I}",)
         else:
+            yield (f"{other}0I{I}", f"{other}1I{I}") # TODO: move back to last
             yield (f"{other}0I{I}",)
             yield (f"{other}1I{I}",)
-            yield (f"{other}0I{I}", f"{other}1I{I}")
 
 def gen_sigma(delta):
     assert len(delta) == 2
@@ -105,14 +106,34 @@ def macro_bit(delta, sigma, micro_state, i):
     else:
         return F("1/2")
 
-def calc_phi(tpm, state):
-    return 0  # TODO: call PyPhi
+tpm_to_network = {}
+tpm_to_phis = {}
+
+def calc_phis(tpm):
+    if tpm in tpm_to_phis:
+        return tpm_to_phis[tpm]
+
+    if tpm in tpm_to_network:
+        network = tpm_to_network[tpm]
+    else:
+        network = pyphi.Network(numpy.array([
+            [float(cell) for cell in row]
+            for row in tpm
+        ]))
+        tpm_to_network[tpm] = network
+
+    phis = tuple(
+        pyphi.compute.phi(pyphi.Subsystem(network, state))
+        for state in ((0, 0), (1, 0), (0, 1), (1, 1))
+    )
+    tpm_to_phis[tpm] = phis
+    return phis
 
 def print_row(prog, tpm, phis):
     # TODO: turn into LaTeX
     print(prog)
     print("; ".join((", ".join((str(f) for f in r)) for r in tpm)))
-    # print(phis)
+    print(phis)
 
 def lookup(state, reg):
     assert reg in state
@@ -165,8 +186,15 @@ def main(limit = 1, progs = (prog1, prog2)):
             for epsilon in gen_epsilon(delta, prog):
                 for sigma in gen_sigma(delta):
                     tpm = calc_tpm(prog, delta, epsilon, sigma)
-                    phis = [calc_phi(tpm, state) for state in  ((0, 0), (1, 0), (0, 1), (1, 1))]
+                    phis = calc_phis(tpm)
                     print_row(prog, tpm, phis)
                     count += 1
                     if count >= limit:
                         return
+
+# TODO: compare complete set of TPMs; is there any overlap between the two programs?
+# TODO: compare range of phi values as well, but round for comparison
+# TODO: display statistics, e.g.
+# - number of distinct TPMs per program
+# - number of TPMs with each unordered combination of phi values
+# - can do this with a map from phis to sets of tpms
