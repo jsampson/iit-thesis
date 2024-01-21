@@ -19,6 +19,7 @@
 import numpy
 import pyphi
 from fractions import Fraction as F
+from itertools import chain, combinations
 
 def gen_delta():
     yield ("A", "B")
@@ -34,18 +35,19 @@ def gen_delta():
     yield ("AX", "B")
     yield ("BX", "A")
 
+def state_product(left_states, right_states):
+    return tuple(l + r for l in left_states for r in right_states)
+
 def gen_epsilon(delta, prog):
     others = set("ABX") - set(delta[0]) - set(delta[1])
     assert len(others) == 0 or len(others) == 1
     other = list(others)[0] if others else None
-    for I in prog.I_options:
-        if not other:
-            yield (f"I{I}",)
-        else:
-            yield (f"{other}0I{I}",)
-            yield (f"{other}1I{I}",)
-            yield (f"{other}0I{I}", f"{other}1I{I}")
-    # TODO: include all combinations of I, not just a specific I value
+    for Is in chain.from_iterable(
+        combinations(prog.I_options, r) for r in range(1, len(prog.I_options) + 1)
+    ):
+        I_parts = [f"I{I}" for I in Is]
+        for other_parts in ((f"{other}0",), (f"{other}1",), (f"{other}0", f"{other}1")) if other else (("",),):
+            yield state_product(I_parts, other_parts)
 
 def gen_sigma(delta):
     assert len(delta) == 2
