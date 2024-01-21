@@ -144,7 +144,7 @@ def calc_phis(tpm):
         try:
             phi = round(pyphi.compute.phi(pyphi.Subsystem(network, state)), 4)
         except pyphi.exceptions.StateUnreachableError:
-            phi = None
+            phi = -1
         phis.append(phi)
     phis = tuple(phis)
     tpm_to_phis[tpm] = phis
@@ -205,23 +205,26 @@ def main():
                 for sigma in gen_sigma(delta):
                     tpm = calc_tpm(prog, delta, epsilon, sigma)
                     if tpm not in tpms:
-                        tpm_phis = () # TODO: calc_phis(tpm)
+                        tpm_phis = calc_phis(tpm)
                         tpms[tpm] = tpm_phis
-                        if tpm_phis in phis:
-                            phis[tpm_phis].add(tpm)
+                        sorted_phis = tuple(sorted(tpm_phis, reverse=True))
+                        if sorted_phis in phis:
+                            phis[sorted_phis].add(tpm)
                         else:
-                            phis[tpm_phis] = {tpm}
+                            phis[sorted_phis] = {tpm}
         prog.tpms = tpms
         prog.phis = phis
         print(prog.display_name, ":", len(tpms), "TPMs")
+        for sorted_phi in sorted(phis.keys(), reverse=True):
+            print(sorted_phi, "Phi values in", len(phis[sorted_phi]), "TPMs")
     print("Common TPMs:")
     common_count = 0
     for tpm in prog1.tpms:
         if tpm in prog2.tpms:
             common_count += 1
-            tpm_phis = calc_phis(tpm)
+            tpm_phis = prog1.tpms[tpm]
             print(" | ".join(" ".join(str(cell) for cell in row) for row in tpm), "=>", tpm_phis)
     print(common_count, "TPMs in common")
 
-# TODO: compare range of phi values as well, but round for comparison
-# TODO: display number of TPMs with each unordered combination of phi values
+if __name__ == "__main__":
+    main()
