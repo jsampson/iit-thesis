@@ -1,9 +1,26 @@
+#!/usr/bin/env python3
+#
+# Justin's IIT Thesis - Causal Snapshotting Analyzer
+# Copyright 2024 by Justin T. Sampson
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import numpy
 import pyphi
 from fractions import Fraction as F
 
 def gen_delta():
-    yield ("B", "AX")  # TODO: remove
     yield ("A", "B")
     yield ("A", "X")
     yield ("A", "BX")
@@ -25,9 +42,9 @@ def gen_epsilon(delta, prog):
         if not other:
             yield (f"I{I}",)
         else:
-            yield (f"{other}0I{I}", f"{other}1I{I}") # TODO: move back to last
             yield (f"{other}0I{I}",)
             yield (f"{other}1I{I}",)
+            yield (f"{other}0I{I}", f"{other}1I{I}")
 
 def gen_sigma(delta):
     assert len(delta) == 2
@@ -122,18 +139,16 @@ def calc_phis(tpm):
         ]))
         tpm_to_network[tpm] = network
 
-    phis = tuple(
-        pyphi.compute.phi(pyphi.Subsystem(network, state))
-        for state in ((0, 0), (1, 0), (0, 1), (1, 1))
-    )
+    phis = []
+    for state in ((0, 0), (1, 0), (0, 1), (1, 1)):
+        try:
+            phi = round(pyphi.compute.phi(pyphi.Subsystem(network, state)), 4)
+        except pyphi.exceptions.StateUnreachableError:
+            phi = None
+        phis.append(phi)
+    phis = tuple(phis)
     tpm_to_phis[tpm] = phis
     return phis
-
-def print_row(prog, tpm, phis):
-    # TODO: turn into LaTeX
-    print(prog)
-    print("; ".join((", ".join((str(f) for f in r)) for r in tpm)))
-    print(phis)
 
 def lookup(state, reg):
     assert reg in state
@@ -165,6 +180,7 @@ def prog1(A, B, X, I):
         A = B
     return A, B, X, I
 
+prog1.display_name = "Original"
 prog1.I_options = (3, 4, 5)
 
 def prog2(A, B, X, I):
@@ -177,24 +193,35 @@ def prog2(A, B, X, I):
         A = B
     return A, B, X, I
 
+prog2.display_name = "Decomposed"
 prog2.I_options = (4, 5)
 
-def main(limit = 1, progs = (prog1, prog2)):
-    count = 0
-    for prog in progs:
+def main():
+    for prog in (prog1, prog2):
+        tpms = {}
+        phis = {}
         for delta in gen_delta():
             for epsilon in gen_epsilon(delta, prog):
                 for sigma in gen_sigma(delta):
                     tpm = calc_tpm(prog, delta, epsilon, sigma)
-                    phis = calc_phis(tpm)
-                    print_row(prog, tpm, phis)
-                    count += 1
-                    if count >= limit:
-                        return
+                    if tpm not in tpms:
+                        tpm_phis = () # TODO: calc_phis(tpm)
+                        tpms[tpm] = tpm_phis
+                        if tpm_phis in phis:
+                            phis[tpm_phis].add(tpm)
+                        else:
+                            phis[tpm_phis] = {tpm}
+        prog.tpms = tpms
+        prog.phis = phis
+        print(prog.display_name, ":", len(tpms), "TPMs")
+    print("Common TPMs:")
+    common_count = 0
+    for tpm in prog1.tpms:
+        if tpm in prog2.tpms:
+            common_count += 1
+            tpm_phis = calc_phis(tpm)
+            print(" | ".join(" ".join(str(cell) for cell in row) for row in tpm), "=>", tpm_phis)
+    print(common_count, "TPMs in common")
 
-# TODO: compare complete set of TPMs; is there any overlap between the two programs?
 # TODO: compare range of phi values as well, but round for comparison
-# TODO: display statistics, e.g.
-# - number of distinct TPMs per program
-# - number of TPMs with each unordered combination of phi values
-# - can do this with a map from phis to sets of tpms
+# TODO: display number of TPMs with each unordered combination of phi values
