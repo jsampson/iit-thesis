@@ -45,6 +45,7 @@ def gen_epsilon(delta, prog):
             yield (f"{other}0I{I}",)
             yield (f"{other}1I{I}",)
             yield (f"{other}0I{I}", f"{other}1I{I}")
+    # TODO: include all combinations of I, not just a specific I value
 
 def gen_sigma(delta):
     assert len(delta) == 2
@@ -91,7 +92,7 @@ def gen_sigma_sub(delta_sub):
                         if len(off) > 0 and len(on) > 0:
                             yield (tuple(off), tuple(on))
 
-def calc_tpm(prog, delta, epsilon, sigma):
+def calc_tpm(prog, epsilon, sigma):
     tpm = []
     for macro_start in ((0, 0), (1, 0), (0, 1), (1, 1)):
         count = 0
@@ -103,22 +104,37 @@ def calc_tpm(prog, delta, epsilon, sigma):
                     count += 1
                     micro_start = elem_0_micro + elem_1_micro + env_micro
                     micro_end = do_prog(prog, micro_start)
-                    macro_end = (
-                        macro_bit(delta, sigma, micro_end, 0),
-                        macro_bit(delta, sigma, micro_end, 1),
-                    )
+                    macro_end = (F(1, 2), F(1, 2))
+                    for _step in range(100):
+                        if restriction_satisfies(micro_end, epsilon):
+                            macro_end = (
+                                macro_bit(sigma, micro_end, 0),
+                                macro_bit(sigma, micro_end, 1),
+                            )
+                            break
+                        else:
+                            micro_end = do_prog(prog, micro_end)
                     p0 += macro_end[0]
                     p1 += macro_end[1]
         tpm.append((F(p0, count), F(p1, count)))
     return tuple(tpm)
 
-def macro_bit(delta, sigma, micro_state, i):
-    restricted_state = ""
-    for v in delta[i]:
-        restricted_state += f"{v}{lookup(micro_state, v)}"
-    if restricted_state in sigma[i][0]:
+def restriction_satisfies(micro_state, valid_states):
+    if not valid_states:
+        return False
+    elif not valid_states[0]:
+        return True
+    else:
+        restricted_state = ""
+        for i in range(len(valid_states[0]) // 2):
+            reg = valid_states[0][i * 2]
+            restricted_state += f"{reg}{lookup(micro_state, reg)}"
+        return restricted_state in valid_states
+
+def macro_bit(sigma, micro_state, i):
+    if restriction_satisfies(micro_state, sigma[i][0]):
         return F(0)
-    elif restricted_state in sigma[i][1]:
+    elif restriction_satisfies(micro_state, sigma[i][1]):
         return F(1)
     else:
         return F("1/2")
@@ -203,7 +219,7 @@ def main():
         for delta in gen_delta():
             for epsilon in gen_epsilon(delta, prog):
                 for sigma in gen_sigma(delta):
-                    tpm = calc_tpm(prog, delta, epsilon, sigma)
+                    tpm = calc_tpm(prog, epsilon, sigma)
                     if tpm not in tpms:
                         tpm_phis = calc_phis(tpm)
                         tpms[tpm] = tpm_phis
@@ -217,6 +233,7 @@ def main():
         print(prog.display_name, ":", len(tpms), "TPMs")
         for sorted_phi in sorted(phis.keys(), reverse=True):
             print(sorted_phi, "Phi values in", len(phis[sorted_phi]), "TPMs")
+        # TODO: print delta/epsilon/sigma and TPMs with highest Phi values
     print("Common TPMs:")
     common_count = 0
     for tpm in prog1.tpms:
