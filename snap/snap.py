@@ -218,6 +218,7 @@ def main():
     for prog in (prog1, prog2):
         tpms = {}
         phis = {}
+        full = {}
         for delta in gen_delta():
             for epsilon in gen_epsilon(delta, prog):
                 for sigma in gen_sigma(delta):
@@ -230,12 +231,24 @@ def main():
                             phis[sorted_phis].add(tpm)
                         else:
                             phis[sorted_phis] = {tpm}
+                        full_info = (prog, delta, epsilon, sigma, tpm, tpm_phis)
+                        if sorted_phis in full:
+                            full[sorted_phis].append(full_info)
+                        else:
+                            full[sorted_phis] = [full_info]
         prog.tpms = tpms
         prog.phis = phis
         print(prog.display_name, ":", len(tpms), "TPMs")
         for sorted_phi in sorted(phis.keys(), reverse=True):
             print(sorted_phi, "Phi values in", len(phis[sorted_phi]), "TPMs")
-        # TODO: print delta/epsilon/sigma and TPMs with highest Phi values
+        highest_phi = sorted(phis.keys(), reverse=True)[0]
+        print("All snapshot specificiations with highest Phi:")
+        for _prog, delta, epsilon, sigma, tpm, tpm_phis in full[highest_phi]:
+            print("- delta:  ", delta)
+            print("  epsilon:", epsilon)
+            print("  sigma:  ", sigma)
+            print("  TPM:    ", " | ".join(" ".join(str(cell) for cell in row) for row in tpm))
+            print("  Phi:    ", tpm_phis)
     print("Common TPMs:")
     common_count = 0
     for tpm in prog1.tpms:
